@@ -6,24 +6,16 @@ use binread::{BinRead, BinReaderExt};
 struct Header {
     #[br(count = 32)]
     magic_number: Vec<u8>,
-    #[br(count = 1)]
-    database_type: Vec<u8>,
-    #[br(count = 1)]
-    additional_flags: Vec<u8>,
-    #[br(count = 1)]
-    alignment_power: Vec<u8>,
-    #[br(count = 1)]
-    free_block_pool_power: Vec<u8>,
-    #[br(count = 1, pad_after = 3)]
-    options: Vec<u8>,
-    #[br(count = 8)]
-    bucket_number: Vec<u8>,
-    #[br(count = 8)]
-    record_number: Vec<u8>,
-    #[br(count = 8)]
-    file_size: Vec<u8>,
-    #[br(count = 8)]
-    first_record: Vec<u8>,
+    database_type: u8,
+    additional_flags: u8,
+    alignment_power: u8,
+    free_block_pool_power: u8,
+    #[br(pad_after = 3)]
+    options: u8,
+    bucket_number: u64,
+    record_number: u64,
+    file_size: u64,
+    first_record: u64,
     #[br(count = 128)]
     opaque_region: Vec<u8>,
 }
