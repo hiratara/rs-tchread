@@ -1,10 +1,11 @@
-use std::fs::File;
+use std::{fs::File, io::{Seek, SeekFrom}};
 
 use binread::{BinRead, BinReaderExt, NullString};
 
 
 
 #[derive(BinRead, Debug)]
+#[br(big)]
 struct Header {
     #[br(count = 32, assert(magic_number.starts_with(b"ToKyO CaBiNeT")))]
     magic_number: Vec<u8>,
@@ -25,8 +26,35 @@ struct Header {
     */
 }
 
+#[derive(BinRead, Debug)]
+#[br(big)]
+struct Record {
+    #[br(assert(magic_number == 0xc8))]
+    magic_number: u8,
+    hash_value: u8,
+    #[br(count = 4)]
+    left_chain: Vec<u8>,
+    #[br(count = 4)]
+    right_chain: Vec<u8>,
+    padding_size: u16,
+    // #[br(count = 1)]
+    // key_size: Vec<u8>,
+    // #[br(count = 1)]
+    // value_size: Vec<u8>,
+    // #[br(count = key_size)]
+    // key: Vec<u8>,
+    // #[br(count = value_size)]
+    // value: Vec<u8>,
+    // #[br(count = padding_size)]
+    // padding: Vec<u8>,
+}
+
 fn main() {
     let mut file = File::open("casket.tch").unwrap();
-    let header: Header = file.read_be().unwrap();
+    let header: Header = file.read_ne().unwrap();
     println!("{:?}", &header);
+
+    file.seek(SeekFrom::Start(header.first_record)).unwrap();
+    let record: Record = file.read_ne().unwrap();
+    println!("{:?}", &record);
 }
