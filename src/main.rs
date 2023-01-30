@@ -1,11 +1,11 @@
 use std::{fs::File, io::{Seek, SeekFrom}};
 
-use binread::{BinRead, BinReaderExt, NullString};
+use binread::{BinRead, BinReaderExt};
 
 
 
 #[derive(BinRead, Debug)]
-#[br(big)]
+#[br(little)]
 struct Header {
     #[br(count = 32, assert(magic_number.starts_with(b"ToKyO CaBiNeT")))]
     magic_number: Vec<u8>,
@@ -27,7 +27,7 @@ struct Header {
 }
 
 #[derive(BinRead, Debug)]
-#[br(big)]
+#[br(little)]
 struct Record {
     #[br(assert(magic_number == 0xc8))]
     magic_number: u8,
