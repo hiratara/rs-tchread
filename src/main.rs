@@ -1,8 +1,36 @@
-use std::{fs::File, io::{Seek, SeekFrom}};
+use std::{fs::File, io::{Seek, SeekFrom, Read}};
 
-use binread::{BinRead, BinReaderExt};
+use binread::{BinRead, BinReaderExt, ReadOptions, BinResult};
 
+#[derive(Debug)]
+struct VNum(u32);
 
+impl BinRead for VNum {
+    type Args = ();
+
+    fn read_options<R: Read + Seek>(
+        reader: &mut R,
+        _options: &ReadOptions,
+        _: Self::Args,
+    ) -> BinResult<Self> {
+        let mut num = 0u32;
+        let mut base = 1i32;
+        let mut buf = [0u8];
+
+        loop {
+            reader.read_exact(&mut buf)?;
+            let x = buf[0] as i8;
+            if x >= 0 {
+                num += (x as i32 * base) as u32;
+                break;
+            }
+            num += (base * (x + 1) as i32 * -1) as u32;
+            base <<= 7;
+        }
+
+        Ok(VNum(num))
+    }
+}
 
 #[derive(BinRead, Debug)]
 #[br(little)]
@@ -37,14 +65,12 @@ struct Record {
     #[br(count = 4)]
     right_chain: Vec<u8>,
     padding_size: u16,
-    // #[br(count = 1)]
-    // key_size: Vec<u8>,
-    // #[br(count = 1)]
-    // value_size: Vec<u8>,
-    // #[br(count = key_size)]
-    // key: Vec<u8>,
-    // #[br(count = value_size)]
-    // value: Vec<u8>,
+    key_size: VNum,
+    value_size: VNum,
+    #[br(count = key_size.0)]
+    key: Vec<u8>,
+    #[br(count = value_size.0)]
+    value: Vec<u8>,
     // #[br(count = padding_size)]
     // padding: Vec<u8>,
 }
