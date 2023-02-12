@@ -14,15 +14,15 @@ impl BinRead for VNum {
         args: Self::Args,
     ) -> BinResult<Self> {
         let mut num = 0u32;
-        let mut base = 1i32;
+        let mut base = 1u32;
 
         loop {
-            let x = <i8>::read_options(reader, options, args)?;
-            if x >= 0 {
-                num += (x as i32 * base) as u32;
+            let x = <u8>::read_options(reader, options, args)? as u32;
+            if x < 0xA0 {
+                num += x * base;
                 break;
             }
-            num += (base * (x + 1) as i32 * -1) as u32;
+            num += base * (0xFF - x);
             base <<= 7;
         }
 
