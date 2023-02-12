@@ -1,11 +1,11 @@
-use std::{fs::File, io::{Seek, SeekFrom, Read}};
+use std::{fs::File, io::{Seek, SeekFrom, Read}, ops::{Sub, Add, Mul, ShlAssign, AddAssign}};
 
 use binread::{BinRead, BinReaderExt, ReadOptions, BinResult};
 
 #[derive(Debug)]
-struct VNum(u32);
+struct VNum<T>(T);
 
-impl BinRead for VNum {
+impl<T> BinRead for VNum<T> where T: From<u8> + Ord + Add + Mul<Output = T> + Sub<Output = T> + ShlAssign<i32> + AddAssign + Copy {
     type Args = ();
 
     fn read_options<R: Read + Seek>(
@@ -13,16 +13,16 @@ impl BinRead for VNum {
         options: &ReadOptions,
         args: Self::Args,
     ) -> BinResult<Self> {
-        let mut num = 0u32;
-        let mut base = 1u32;
+        let mut num = T::from(0);
+        let mut base = T::from(1);
 
         loop {
-            let x = <u8>::read_options(reader, options, args)? as u32;
-            if x < 0xA0 {
+            let x = T::from(<u8>::read_options(reader, options, args)?);
+            if x < T::from(0xA0) {
                 num += x * base;
                 break;
             }
-            num += base * (0xFF - x);
+            num += base * (T::from(0xFF) - x);
             base <<= 7;
         }
 
@@ -63,8 +63,8 @@ struct Record {
     #[br(count = 4)]
     right_chain: Vec<u8>,
     padding_size: u16,
-    key_size: VNum,
-    value_size: VNum,
+    key_size: VNum<u32>,
+    value_size: VNum<u32>,
     #[br(count = key_size.0)]
     key: Vec<u8>,
     #[br(count = value_size.0)]
