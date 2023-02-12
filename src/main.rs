@@ -10,16 +10,14 @@ impl BinRead for VNum {
 
     fn read_options<R: Read + Seek>(
         reader: &mut R,
-        _options: &ReadOptions,
-        _: Self::Args,
+        options: &ReadOptions,
+        args: Self::Args,
     ) -> BinResult<Self> {
         let mut num = 0u32;
         let mut base = 1i32;
-        let mut buf = [0u8];
 
         loop {
-            reader.read_exact(&mut buf)?;
-            let x = buf[0] as i8;
+            let x = <i8>::read_options(reader, options, args)?;
             if x >= 0 {
                 num += (x as i32 * base) as u32;
                 break;
