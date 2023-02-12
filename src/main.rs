@@ -1,11 +1,18 @@
-use std::{fs::File, io::{Seek, SeekFrom, Read}, ops::{Sub, Add, Mul, ShlAssign, AddAssign}};
+use std::{
+    fs::File,
+    io::{Read, Seek, SeekFrom},
+    ops::{Add, AddAssign, Mul, ShlAssign, Sub},
+};
 
-use binread::{BinRead, BinReaderExt, ReadOptions, BinResult};
+use binread::{BinRead, BinReaderExt, BinResult, ReadOptions};
 
 #[derive(Debug)]
 struct VNum<T>(T);
 
-impl<T> BinRead for VNum<T> where T: From<u8> + Ord + Add + Mul<Output = T> + Sub<Output = T> + ShlAssign<i32> + AddAssign + Copy {
+impl<T> BinRead for VNum<T>
+where
+    T: From<u8> + Ord + Add + Mul<Output = T> + Sub<Output = T> + ShlAssign<i32> + AddAssign + Copy,
+{
     type Args = ();
 
     fn read_options<R: Read + Seek>(
