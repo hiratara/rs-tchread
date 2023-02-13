@@ -76,8 +76,8 @@ struct Record {
     key: Vec<u8>,
     #[br(count = value_size.0)]
     value: Vec<u8>,
-    // #[br(count = padding_size)]
-    // padding: Vec<u8>,
+    #[br(count = padding_size)]
+    padding: Vec<u8>,
 }
 
 fn main() {
@@ -86,6 +86,14 @@ fn main() {
     println!("{:?}", &header);
 
     file.seek(SeekFrom::Start(header.first_record)).unwrap();
-    let record: Record = file.read_ne().unwrap();
-    println!("{:?}", &record);
+    loop {
+        let record: Result<Record, _> = file.read_ne();
+        match record {
+            Ok(record) => println!("{:?}", &record),
+            Err(err) => {
+                println!("{:?}", err);
+                break;
+            }
+        }
+    }
 }
