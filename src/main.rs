@@ -4,7 +4,7 @@ use std::{
     ops::{Add, AddAssign, Mul, ShlAssign, Sub},
 };
 
-use binread::{BinRead, BinReaderExt, BinResult, ReadOptions};
+use binread::{io::StreamPosition, BinRead, BinReaderExt, BinResult, ReadOptions};
 
 #[derive(Debug)]
 struct VNum<T>(T);
@@ -87,13 +87,12 @@ fn main() {
 
     file.seek(SeekFrom::Start(header.first_record)).unwrap();
     loop {
-        let record: Result<Record, _> = file.read_ne();
-        match record {
-            Ok(record) => println!("{:?}", &record),
-            Err(err) => {
-                println!("{:?}", err);
-                break;
-            }
+        let record: Record = file.read_ne().unwrap();
+        println!("{:?}", &record);
+
+        let pos = file.stream_position().unwrap();
+        if pos >= header.file_size {
+            break;
         }
     }
 }
