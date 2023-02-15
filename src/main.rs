@@ -61,23 +61,30 @@ struct Header {
 
 #[derive(BinRead, Debug)]
 #[br(little)]
-struct Record {
-    #[br(assert(magic_number == 0xc8))]
-    magic_number: u8,
-    hash_value: u8,
-    #[br(count = 4)]
-    left_chain: Vec<u8>,
-    #[br(count = 4)]
-    right_chain: Vec<u8>,
-    padding_size: u16,
-    key_size: VNum<u32>,
-    value_size: VNum<u32>,
-    #[br(count = key_size.0)]
-    key: Vec<u8>,
-    #[br(count = value_size.0)]
-    value: Vec<u8>,
-    #[br(count = padding_size)]
-    padding: Vec<u8>,
+enum Record {
+    #[br(magic = 0xc8u8)]
+    Record {
+        hash_value: u8,
+        #[br(count = 4)]
+        left_chain: Vec<u8>,
+        #[br(count = 4)]
+        right_chain: Vec<u8>,
+        padding_size: u16,
+        key_size: VNum<u32>,
+        value_size: VNum<u32>,
+        #[br(count = key_size.0)]
+        key: Vec<u8>,
+        #[br(count = value_size.0)]
+        value: Vec<u8>,
+        #[br(count = padding_size)]
+        padding: Vec<u8>,
+    },
+    #[br(magic = 0xb0u8)]
+    FreeBlock {
+        block_size: u32,
+        #[br(count = block_size - 5)]
+        padding: Vec<u8>,
+    },
 }
 
 fn main() {
