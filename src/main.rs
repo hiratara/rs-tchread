@@ -53,11 +53,18 @@ struct Header {
     record_number: u64,
     file_size: u64,
     first_record: u64,
-    /*
     #[br(count = 128)]
     opaque_region: Vec<u8>,
-    */
 }
+
+#[derive(BinRead, Debug)]
+#[br(import(bucket_number: u64))]
+struct Buckets(#[br(count = bucket_number)] Vec<u32>); // also needs u64 instance
+
+// TODO: free block pool size の出し方
+// #[derive(BinRead, Debug)]
+// #[br(import(free_block_pool_size: u64))]
+// struct FreeBlockPool(#[br(count = free_block_pool_size)] Vec<u32>);
 
 #[derive(BinRead, Debug)]
 #[br(little)]
@@ -91,6 +98,16 @@ fn main() {
     let mut file = File::open("casket.tch").unwrap();
     let header: Header = file.read_ne().unwrap();
     println!("{:?}", &header);
+
+    let buckets: Buckets = file.read_ne_args((header.bucket_number,)).unwrap();
+    println!("bucket length: {}", buckets.0.len());
+    for (i, pos) in buckets.0.iter().enumerate().filter(|&(_, &n)| n != 0) {
+        println!(
+            "bucket {} pos: {:#01x}",
+            i,
+            pos * 2u32.pow(header.alignment_power as u32)
+        );
+    }
 
     file.seek(SeekFrom::Start(header.first_record)).unwrap();
     loop {
