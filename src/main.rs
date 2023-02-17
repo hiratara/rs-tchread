@@ -4,7 +4,7 @@ use std::{
     ops::{Add, AddAssign, Mul, ShlAssign, Sub},
 };
 
-use binread::{io::StreamPosition, BinRead, BinReaderExt, BinResult, ReadOptions};
+use binread::{BinRead, BinReaderExt, BinResult, ReadOptions};
 
 #[derive(Debug)]
 struct VNum<T>(T);
