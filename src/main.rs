@@ -52,6 +52,7 @@ struct Header {
     bucket_number: u64,
     record_number: u64,
     file_size: u64,
+    #[br(pad_after = 56)]
     first_record: u64,
     #[br(count = 128)]
     opaque_region: Vec<u8>,
@@ -61,10 +62,11 @@ struct Header {
 #[br(import(bucket_number: u64))]
 struct Buckets(#[br(count = bucket_number)] Vec<u32>); // also needs u64 instance
 
-// TODO: free block pool size の出し方
-// #[derive(BinRead, Debug)]
-// #[br(import(free_block_pool_size: u64))]
-// struct FreeBlockPool(#[br(count = free_block_pool_size)] Vec<u32>);
+#[derive(BinRead, Debug)]
+struct FreeBlockPoolElement {
+    offset: VNum<u32>,
+    size: VNum<u32>,
+}
 
 #[derive(BinRead, Debug)]
 #[br(little)]
@@ -99,13 +101,28 @@ fn main() {
     let header: Header = file.read_ne().unwrap();
     println!("{:?}", &header);
 
+    let alignment = 2u32.pow(header.alignment_power as u32);
+
     let buckets: Buckets = file.read_ne_args((header.bucket_number,)).unwrap();
     println!("bucket length: {}", buckets.0.len());
     for (i, pos) in buckets.0.iter().enumerate().filter(|&(_, &n)| n != 0) {
+        println!("bucket {} pos: {:#01x}", i, pos * alignment);
+    }
+
+    println!(
+        "free_block_pool offset: {:#01x}",
+        file.stream_position().unwrap(),
+        // 256 + header.bucket_number * mem::size_of::<i32>() as u64,
+    );
+    loop {
+        let elem: FreeBlockPoolElement = file.read_ne().unwrap();
+        if elem.offset.0 == 0 && elem.size.0 == 0 {
+            break;
+        }
         println!(
-            "bucket {} pos: {:#01x}",
-            i,
-            pos * 2u32.pow(header.alignment_power as u32)
+            "free_block_pool: offset={:#01x}, size={}",
+            &elem.offset.0 * alignment,
+            &elem.size.0
         );
     }
 
