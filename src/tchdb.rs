@@ -70,6 +70,34 @@ pub struct FreeBlockPoolElement {
     pub size: VNum<u32>,
 }
 
+#[derive(BinRead, Debug)]
+#[br(little)]
+pub enum Record {
+    #[br(magic = 0xc8u8)]
+    Record {
+        hash_value: u8,
+        #[br(count = 4)]
+        left_chain: Vec<u8>,
+        #[br(count = 4)]
+        right_chain: Vec<u8>,
+        padding_size: u16,
+        key_size: VNum<u32>,
+        value_size: VNum<u32>,
+        #[br(count = key_size.0)]
+        key: Vec<u8>,
+        #[br(count = value_size.0)]
+        value: Vec<u8>,
+        #[br(count = padding_size)]
+        padding: Vec<u8>,
+    },
+    #[br(magic = 0xb0u8)]
+    FreeBlock {
+        block_size: u32,
+        #[br(count = block_size - 5)]
+        padding: Vec<u8>,
+    },
+}
+
 pub struct TCHDB<T> {
     pub reader: T,
     pub header: Header,
@@ -144,5 +172,25 @@ where
             pool.push(elem);
         }
         pool
+    }
+
+    pub fn read_records(&mut self) -> Vec<Record> {
+        self.reader
+            .seek(SeekFrom::Start(self.header.first_record))
+            .unwrap();
+
+        let mut records = Vec::with_capacity(self.header.record_number as usize);
+
+        loop {
+            let record: Record = self.reader.read_ne().unwrap();
+            records.push(record);
+
+            let pos = self.reader.stream_position().unwrap();
+            if pos >= self.header.file_size {
+                break;
+            }
+        }
+
+        records
     }
 }
