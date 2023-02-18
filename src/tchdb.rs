@@ -1,6 +1,7 @@
 use std::{
     fs::File,
     io::{Read, Seek, SeekFrom},
+    mem,
     path::Path,
 };
 
@@ -34,8 +35,9 @@ pub struct Buckets(#[br(count = bucket_number)] pub Vec<u32>); // also needs u64
 pub struct TCHDB<T> {
     pub reader: T,
     pub header: Header,
-    pub bucket_offset: u64, // always be 256
     pub alignment: u32,
+    pub bucket_offset: u64, // always be 256
+    pub free_block_pool_offset: u64,
 }
 
 impl TCHDB<File> {
@@ -60,11 +62,15 @@ where
         let bucket_offset = reader.stream_position().unwrap();
         debug_assert_eq!(bucket_offset, 256);
 
+        let free_block_pool_offset =
+            bucket_offset + header.bucket_number * mem::size_of::<i32>() as u64;
+
         TCHDB {
             reader,
             header,
-            bucket_offset,
             alignment,
+            bucket_offset,
+            free_block_pool_offset,
         }
     }
 
@@ -72,8 +78,16 @@ where
         self.reader
             .seek(SeekFrom::Start(self.bucket_offset))
             .unwrap();
-        self.reader
+        let buckets = self
+            .reader
             .read_ne_args((self.header.bucket_number,))
-            .unwrap()
+            .unwrap();
+
+        debug_assert_eq!(
+            self.reader.stream_position().unwrap(),
+            self.free_block_pool_offset
+        );
+
+        buckets
     }
 }
