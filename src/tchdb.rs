@@ -1,6 +1,6 @@
 use std::{
     fs::File,
-    io::{Read, Seek},
+    io::{Read, Seek, SeekFrom},
     path::Path,
 };
 
@@ -53,6 +53,7 @@ where
     T: Read + Seek + Sized,
 {
     pub fn new(mut reader: T) -> Self {
+        reader.seek(SeekFrom::Start(0)).unwrap();
         let header: Header = reader.read_ne().unwrap();
 
         let alignment = 2u32.pow(header.alignment_power as u32);
@@ -68,6 +69,9 @@ where
     }
 
     pub fn read_buckets(&mut self) -> Buckets {
+        self.reader
+            .seek(SeekFrom::Start(self.bucket_offset))
+            .unwrap();
         self.reader
             .read_ne_args((self.header.bucket_number,))
             .unwrap()
