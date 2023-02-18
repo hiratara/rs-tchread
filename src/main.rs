@@ -1,3 +1,5 @@
+mod tchdb;
+
 use std::{
     fs::File,
     io::{Read, Seek, SeekFrom},
@@ -5,6 +7,8 @@ use std::{
 };
 
 use binread::{BinRead, BinReaderExt, BinResult, ReadOptions};
+
+use crate::tchdb::TCHDB;
 
 #[derive(Debug)]
 struct VNum<T>(T);
@@ -97,13 +101,15 @@ enum Record {
 }
 
 fn main() {
-    let mut file = File::open("casket.tch").unwrap();
-    let header: Header = file.read_ne().unwrap();
-    println!("{:?}", &header);
+    let mut tchdb = TCHDB::open("casket.tch");
+    println!("{:?}", &tchdb.header);
 
-    let alignment = 2u32.pow(header.alignment_power as u32);
+    let alignment = 2u32.pow(tchdb.header.alignment_power as u32);
 
-    let buckets: Buckets = file.read_ne_args((header.bucket_number,)).unwrap();
+    let buckets: Buckets = tchdb
+        .file
+        .read_ne_args((tchdb.header.bucket_number,))
+        .unwrap();
     println!("bucket length: {}", buckets.0.len());
     for (i, pos) in buckets.0.iter().enumerate().filter(|&(_, &n)| n != 0) {
         println!("bucket {} pos: {:#01x}", i, pos * alignment);
@@ -111,11 +117,11 @@ fn main() {
 
     println!(
         "free_block_pool offset: {:#01x}",
-        file.stream_position().unwrap(),
+        tchdb.file.stream_position().unwrap(),
         // 256 + header.bucket_number * mem::size_of::<i32>() as u64,
     );
     loop {
-        let elem: FreeBlockPoolElement = file.read_ne().unwrap();
+        let elem: FreeBlockPoolElement = tchdb.file.read_ne().unwrap();
         if elem.offset.0 == 0 && elem.size.0 == 0 {
             break;
         }
@@ -126,13 +132,16 @@ fn main() {
         );
     }
 
-    file.seek(SeekFrom::Start(header.first_record)).unwrap();
+    tchdb
+        .file
+        .seek(SeekFrom::Start(tchdb.header.first_record))
+        .unwrap();
     loop {
-        let record: Record = file.read_ne().unwrap();
+        let record: Record = tchdb.file.read_ne().unwrap();
         println!("{:?}", &record);
 
-        let pos = file.stream_position().unwrap();
-        if pos >= header.file_size {
+        let pos = tchdb.file.stream_position().unwrap();
+        if pos >= tchdb.header.file_size {
             break;
         }
     }
