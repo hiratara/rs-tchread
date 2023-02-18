@@ -1,7 +1,6 @@
 mod tchdb;
 
 use std::{
-    fs::File,
     io::{Read, Seek, SeekFrom},
     ops::{Add, AddAssign, Mul, ShlAssign, Sub},
 };
