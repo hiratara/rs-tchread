@@ -1,4 +1,5 @@
 mod tchdb;
+mod vnum;
 
 use crate::tchdb::{Buckets, TCHDB};
 

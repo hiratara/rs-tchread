@@ -2,11 +2,12 @@ use std::{
     fs::File,
     io::{Read, Seek, SeekFrom},
     mem,
-    ops::{Add, AddAssign, Mul, ShlAssign, Sub},
     path::Path,
 };
 
-use binread::{BinRead, BinReaderExt, BinResult, ReadOptions};
+use binread::{BinRead, BinReaderExt};
+
+use crate::vnum::VNum;
 
 #[derive(BinRead, Debug)]
 #[br(little)]
@@ -32,37 +33,6 @@ pub struct Header {
 #[derive(BinRead, Debug)]
 #[br(import(bucket_number: u64))]
 pub struct Buckets(#[br(count = bucket_number)] pub Vec<u32>); // also needs u64 instance
-
-#[derive(Debug)]
-pub struct VNum<T>(pub T);
-
-impl<T> BinRead for VNum<T>
-where
-    T: From<u8> + Ord + Add + Mul<Output = T> + Sub<Output = T> + ShlAssign<i32> + AddAssign + Copy,
-{
-    type Args = ();
-
-    fn read_options<R: Read + Seek>(
-        reader: &mut R,
-        options: &ReadOptions,
-        args: Self::Args,
-    ) -> BinResult<Self> {
-        let mut num = T::from(0);
-        let mut base = T::from(1);
-
-        loop {
-            let x = T::from(<u8>::read_options(reader, options, args)?);
-            if x < T::from(0xA0) {
-                num += x * base;
-                break;
-            }
-            num += base * (T::from(0xFF) - x);
-            base <<= 7;
-        }
-
-        Ok(VNum(num))
-    }
-}
 
 #[derive(BinRead, Debug)]
 pub struct FreeBlockPoolElement {
