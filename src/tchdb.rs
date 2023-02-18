@@ -27,13 +27,15 @@ pub struct Header {
     pub opaque_region: Vec<u8>,
 }
 
-pub struct TCHDB<T>
-where
-    T: Read + Seek + Sized,
-{
-    pub file: T,
+#[derive(BinRead, Debug)]
+#[br(import(bucket_number: u64))]
+pub struct Buckets(#[br(count = bucket_number)] pub Vec<u32>); // also needs u64 instance
+
+pub struct TCHDB<T> {
+    pub reader: T,
     pub header: Header,
     pub bucket_offset: u64, // always be 256
+    pub alignment: u32,
 }
 
 impl TCHDB<File> {
@@ -41,16 +43,33 @@ impl TCHDB<File> {
     where
         T: AsRef<Path>,
     {
-        let mut file = File::open("casket.tch").unwrap();
-        let header: Header = file.read_ne().unwrap();
+        let file = File::open(path).unwrap();
+        TCHDB::new(file)
+    }
+}
 
-        let bucket_offset = file.stream_position().unwrap();
+impl<T> TCHDB<T>
+where
+    T: Read + Seek + Sized,
+{
+    pub fn new(mut reader: T) -> Self {
+        let header: Header = reader.read_ne().unwrap();
+
+        let alignment = 2u32.pow(header.alignment_power as u32);
+        let bucket_offset = reader.stream_position().unwrap();
         debug_assert_eq!(bucket_offset, 256);
 
         TCHDB {
-            file,
+            reader,
             header,
             bucket_offset,
+            alignment,
         }
+    }
+
+    pub fn read_buckets(&mut self) -> Buckets {
+        self.reader
+            .read_ne_args((self.header.bucket_number,))
+            .unwrap()
     }
 }

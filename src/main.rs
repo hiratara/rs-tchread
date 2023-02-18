@@ -7,7 +7,7 @@ use std::{
 
 use binread::{BinRead, BinReaderExt, BinResult, ReadOptions};
 
-use crate::tchdb::TCHDB;
+use crate::tchdb::{Buckets, TCHDB};
 
 #[derive(Debug)]
 struct VNum<T>(T);
@@ -39,31 +39,6 @@ where
         Ok(VNum(num))
     }
 }
-
-#[derive(BinRead, Debug)]
-#[br(little)]
-struct Header {
-    #[br(count = 32, assert(magic_number.starts_with(b"ToKyO CaBiNeT")))]
-    magic_number: Vec<u8>,
-    #[br(assert(database_type == 0))]
-    database_type: u8,
-    additional_flags: u8,
-    alignment_power: u8,
-    free_block_pool_power: u8,
-    #[br(pad_after = 3)]
-    options: u8,
-    bucket_number: u64,
-    record_number: u64,
-    file_size: u64,
-    #[br(pad_after = 56)]
-    first_record: u64,
-    #[br(count = 128)]
-    opaque_region: Vec<u8>,
-}
-
-#[derive(BinRead, Debug)]
-#[br(import(bucket_number: u64))]
-struct Buckets(#[br(count = bucket_number)] Vec<u32>); // also needs u64 instance
 
 #[derive(BinRead, Debug)]
 struct FreeBlockPoolElement {
@@ -103,43 +78,38 @@ fn main() {
     let mut tchdb = TCHDB::open("casket.tch");
     println!("{:?}", &tchdb.header);
 
-    let alignment = 2u32.pow(tchdb.header.alignment_power as u32);
-
-    let buckets: Buckets = tchdb
-        .file
-        .read_ne_args((tchdb.header.bucket_number,))
-        .unwrap();
+    let buckets: Buckets = tchdb.read_buckets();
     println!("bucket length: {}", buckets.0.len());
     for (i, pos) in buckets.0.iter().enumerate().filter(|&(_, &n)| n != 0) {
-        println!("bucket {} pos: {:#01x}", i, pos * alignment);
+        println!("bucket {} pos: {:#01x}", i, pos * tchdb.alignment);
     }
 
     println!(
         "free_block_pool offset: {:#01x}",
-        tchdb.file.stream_position().unwrap(),
+        tchdb.reader.stream_position().unwrap(),
         // 256 + header.bucket_number * mem::size_of::<i32>() as u64,
     );
     loop {
-        let elem: FreeBlockPoolElement = tchdb.file.read_ne().unwrap();
+        let elem: FreeBlockPoolElement = tchdb.reader.read_ne().unwrap();
         if elem.offset.0 == 0 && elem.size.0 == 0 {
             break;
         }
         println!(
             "free_block_pool: offset={:#01x}, size={}",
-            &elem.offset.0 * alignment,
+            &elem.offset.0 * tchdb.alignment,
             &elem.size.0
         );
     }
 
     tchdb
-        .file
+        .reader
         .seek(SeekFrom::Start(tchdb.header.first_record))
         .unwrap();
     loop {
-        let record: Record = tchdb.file.read_ne().unwrap();
+        let record: Record = tchdb.reader.read_ne().unwrap();
         println!("{:?}", &record);
 
-        let pos = tchdb.file.stream_position().unwrap();
+        let pos = tchdb.reader.stream_position().unwrap();
         if pos >= tchdb.header.file_size {
             break;
         }
