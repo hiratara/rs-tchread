@@ -1,7 +1,7 @@
 mod tchdb;
 mod vnum;
 
-use crate::tchdb::{Buckets, TCHDB};
+use crate::tchdb::{Buckets, Record, TCHDB};
 
 fn main() {
     let mut tchdb = TCHDB::open("casket.tch");
@@ -27,5 +27,8 @@ fn main() {
 
     for record in tchdb.read_records() {
         println!("{:?}", &record);
+        if let Record::Record { key, .. } = record {
+            println!("calculated hash: {:?}", tchdb.hash(&key));
+        }
     }
 }

@@ -163,4 +163,19 @@ where
 
         records
     }
+
+    pub fn hash(&self, key: &[u8]) -> (u64, u8) {
+        let mut idx: u64 = 19780211;
+        for &b in key {
+            idx = idx.wrapping_mul(37).wrapping_add(b as u64);
+        }
+        idx %= self.header.bucket_number;
+
+        let mut hash: u32 = 751;
+        for &b in key.into_iter().rev() {
+            hash = hash.wrapping_mul(31) ^ b as u32;
+        }
+
+        (idx, hash as u8)
+    }
 }
