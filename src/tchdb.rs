@@ -40,6 +40,13 @@ pub struct FreeBlockPoolElement {
     pub size: VNum<u32>,
 }
 
+#[derive(Debug)]
+pub struct KeyWithHash<'a> {
+    key: &'a [u8],
+    idx: u64,
+    hash: u8,
+}
+
 #[derive(BinRead, Debug)]
 #[br(little)]
 pub enum Record {
@@ -164,7 +171,7 @@ where
         records
     }
 
-    pub fn hash(&self, key: &[u8]) -> (u64, u8) {
+    pub fn hash<'a>(&self, key: &'a [u8]) -> KeyWithHash<'a> {
         let mut idx: u64 = 19780211;
         for &b in key {
             idx = idx.wrapping_mul(37).wrapping_add(b as u64);
@@ -176,6 +183,10 @@ where
             hash = hash.wrapping_mul(31) ^ b as u32;
         }
 
-        (idx, hash as u8)
+        KeyWithHash {
+            key,
+            idx,
+            hash: hash as u8,
+        }
     }
 }
