@@ -31,8 +31,11 @@ pub struct Header {
 }
 
 #[derive(BinRead, Debug)]
+pub struct BucketElem(pub u32);
+
+#[derive(BinRead, Debug)]
 #[br(import(bucket_number: u64))]
-pub struct Buckets(#[br(count = bucket_number)] pub Vec<u32>); // also needs u64 instance
+pub struct Buckets(#[br(count = bucket_number)] pub Vec<BucketElem>); // also needs u64 instance
 
 #[derive(BinRead, Debug)]
 pub struct FreeBlockPoolElement {
@@ -53,10 +56,8 @@ pub enum Record {
     #[br(magic = 0xc8u8)]
     Record {
         hash_value: u8,
-        #[br(count = 4)]
-        left_chain: Vec<u8>,
-        #[br(count = 4)]
-        right_chain: Vec<u8>,
+        left_chain: BucketElem,
+        right_chain: BucketElem,
         padding_size: u16,
         key_size: VNum<u32>,
         value_size: VNum<u32>,
@@ -106,7 +107,7 @@ where
         debug_assert_eq!(bucket_offset, 256);
 
         let free_block_pool_offset =
-            bucket_offset + header.bucket_number * mem::size_of::<i32>() as u64;
+            bucket_offset + header.bucket_number * mem::size_of::<BucketElem>() as u64;
 
         TCHDB {
             reader,

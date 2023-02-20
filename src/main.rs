@@ -3,14 +3,23 @@ mod vnum;
 
 use crate::tchdb::{Buckets, Record, TCHDB};
 
+// TODO: better implementation?
+fn as_same_type_of<T: From<S>, S>(_: T, v: S) -> T {
+    From::from(v)
+}
+
 fn main() {
     let mut tchdb = TCHDB::open("casket.tch");
     println!("{:?}", &tchdb.header);
 
     let buckets: Buckets = tchdb.read_buckets();
     println!("bucket length: {}", buckets.0.len());
-    for (i, pos) in buckets.0.iter().enumerate().filter(|&(_, &n)| n != 0) {
-        println!("bucket {} pos: {:#01x}", i, pos * tchdb.alignment);
+    for (i, pos) in buckets.0.iter().enumerate().filter(|&(_, n)| n.0 != 0) {
+        println!(
+            "bucket {} pos: {:#01x}",
+            i,
+            pos.0 * as_same_type_of(pos.0, tchdb.alignment)
+        );
     }
 
     println!(
