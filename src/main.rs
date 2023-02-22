@@ -1,6 +1,8 @@
 mod tchdb;
 mod vnum;
 
+use std::env;
+
 use crate::tchdb::{Buckets, Record, TCHDB};
 
 // TODO: better implementation?
@@ -9,7 +11,8 @@ fn as_same_type_of<T: From<S>, S>(_: T, v: S) -> T {
 }
 
 fn main() {
-    let mut tchdb = TCHDB::open("casket.tch");
+    let path = env::args().take(2).last().unwrap();
+    let mut tchdb = TCHDB::open(&path);
     println!("{:?}", &tchdb.header);
 
     let buckets: Buckets = tchdb.read_buckets();
