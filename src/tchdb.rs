@@ -88,9 +88,29 @@ pub struct TCHDBImpl<B, R> {
     _bucket_type: PhantomData<B>,
 }
 
+impl<B, R> TCHDBImpl<B, R> {
+    pub fn hash<'a>(&self, key: &'a [u8]) -> KeyWithHash<'a> {
+        let mut idx: u64 = 19780211;
+        for &b in key {
+            idx = idx.wrapping_mul(37).wrapping_add(b as u64);
+        }
+        idx %= self.header.bucket_number;
+
+        let mut hash: u32 = 751;
+        for &b in key.into_iter().rev() {
+            hash = hash.wrapping_mul(31) ^ b as u32;
+        }
+
+        KeyWithHash {
+            key,
+            idx,
+            hash: hash as u8,
+        }
+    }
+}
+
 impl<B, R> TCHDBImpl<B, R>
 where
-    B: BinRead<Args = ()>,
     R: Read + Seek,
 {
     fn new(mut reader: R, header: Header) -> Self {
@@ -111,23 +131,6 @@ where
         }
     }
 
-    pub fn read_buckets(&mut self) -> Buckets<B> {
-        self.reader
-            .seek(SeekFrom::Start(self.bucket_offset))
-            .unwrap();
-        let buckets = self
-            .reader
-            .read_ne_args((self.header.bucket_number,))
-            .unwrap();
-
-        debug_assert_eq!(
-            self.reader.stream_position().unwrap(),
-            self.free_block_pool_offset
-        );
-
-        buckets
-    }
-
     pub fn read_free_block_pool(&mut self) -> Vec<FreeBlockPoolElement> {
         self.reader
             .seek(SeekFrom::Start(self.free_block_pool_offset))
@@ -143,6 +146,29 @@ where
             pool.push(elem);
         }
         pool
+    }
+}
+
+impl<B, R> TCHDBImpl<B, R>
+where
+    B: BinRead<Args = ()>,
+    R: Read + Seek,
+{
+    pub fn read_buckets(&mut self) -> Buckets<B> {
+        self.reader
+            .seek(SeekFrom::Start(self.bucket_offset))
+            .unwrap();
+        let buckets = self
+            .reader
+            .read_ne_args((self.header.bucket_number,))
+            .unwrap();
+
+        debug_assert_eq!(
+            self.reader.stream_position().unwrap(),
+            self.free_block_pool_offset
+        );
+
+        buckets
     }
 
     pub fn read_records(&mut self) -> Vec<Record<B>> {
@@ -163,25 +189,6 @@ where
         }
 
         records
-    }
-
-    pub fn hash<'a>(&self, key: &'a [u8]) -> KeyWithHash<'a> {
-        let mut idx: u64 = 19780211;
-        for &b in key {
-            idx = idx.wrapping_mul(37).wrapping_add(b as u64);
-        }
-        idx %= self.header.bucket_number;
-
-        let mut hash: u32 = 751;
-        for &b in key.into_iter().rev() {
-            hash = hash.wrapping_mul(31) ^ b as u32;
-        }
-
-        KeyWithHash {
-            key,
-            idx,
-            hash: hash as u8,
-        }
     }
 }
 
