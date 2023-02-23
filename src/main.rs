@@ -1,28 +1,42 @@
 mod tchdb;
 mod vnum;
 
-use std::env;
+use std::{
+    env,
+    fmt::LowerHex,
+    io::{Read, Seek},
+};
 
-use crate::tchdb::{Buckets, Record, TCHDB};
+use binread::BinRead;
+use tchdb::TCHDB;
 
-// TODO: better implementation?
-fn as_same_type_of<T: From<S>, S>(_: T, v: S) -> T {
-    From::from(v)
-}
+use crate::tchdb::{Buckets, Record, TCHDBImpl};
 
 fn main() {
     let path = env::args().take(2).last().unwrap();
-    let mut tchdb = TCHDB::open(&path);
+    match TCHDB::open(&path) {
+        TCHDB::Large(tchdb) => run_with_tchdb(tchdb),
+        TCHDB::Small(tchdb) => run_with_tchdb(tchdb),
+    }
+}
+
+fn run_with_tchdb<B, R>(mut tchdb: TCHDBImpl<B, R>)
+where
+    B: BinRead<Args = ()> + std::fmt::Debug + std::ops::Mul + From<u32> + Eq + Copy,
+    <B as std::ops::Mul>::Output: LowerHex,
+    R: Read + Seek,
+{
     println!("{:?}", &tchdb.header);
 
-    let buckets: Buckets = tchdb.read_buckets();
+    let buckets: Buckets<B> = tchdb.read_buckets();
     println!("bucket length: {}", buckets.0.len());
-    for (i, pos) in buckets.0.iter().enumerate().filter(|&(_, n)| n.0 != 0) {
-        println!(
-            "bucket {} pos: {:#01x}",
-            i,
-            pos.0 * as_same_type_of(pos.0, tchdb.alignment)
-        );
+    for (i, &pos) in buckets
+        .0
+        .iter()
+        .enumerate()
+        .filter(|&(_, &n)| n != 0.into())
+    {
+        println!("bucket {} pos: {:#01x}", i, pos * tchdb.alignment.into());
     }
 
     println!(

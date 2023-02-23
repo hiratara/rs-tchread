@@ -1,6 +1,7 @@
 use std::{
     fs::File,
     io::{Read, Seek, SeekFrom},
+    marker::PhantomData,
     mem,
     path::Path,
 };
@@ -31,11 +32,10 @@ pub struct Header {
 }
 
 #[derive(BinRead, Debug)]
-pub struct BucketElem(pub u32);
-
-#[derive(BinRead, Debug)]
 #[br(import(bucket_number: u64))]
-pub struct Buckets(#[br(count = bucket_number)] pub Vec<BucketElem>); // also needs u64 instance
+pub struct Buckets<B>(#[br(count = bucket_number)] pub Vec<B>)
+where
+    B: BinRead<Args = ()>;
 
 #[derive(BinRead, Debug)]
 pub struct FreeBlockPoolElement {
@@ -52,12 +52,15 @@ pub struct KeyWithHash<'a> {
 
 #[derive(BinRead, Debug)]
 #[br(little)]
-pub enum Record {
+pub enum Record<B>
+where
+    B: BinRead<Args = ()>,
+{
     #[br(magic = 0xc8u8)]
     Record {
         hash_value: u8,
-        left_chain: BucketElem,
-        right_chain: BucketElem,
+        left_chain: B,
+        right_chain: B,
         padding_size: u16,
         key_size: VNum<u32>,
         value_size: VNum<u32>,
@@ -76,49 +79,39 @@ pub enum Record {
     },
 }
 
-pub struct TCHDB<T> {
+pub struct TCHDBImpl<S, T> {
     pub reader: T,
     pub header: Header,
     pub alignment: u32,
     pub bucket_offset: u64, // always be 256
     pub free_block_pool_offset: u64,
+    _bucket_type: PhantomData<S>,
 }
 
-impl TCHDB<File> {
-    pub fn open<T>(path: T) -> Self
-    where
-        T: AsRef<Path>,
-    {
-        let file = File::open(path).unwrap();
-        TCHDB::new(file)
-    }
-}
-
-impl<T> TCHDB<T>
+impl<B, R> TCHDBImpl<B, R>
 where
-    T: Read + Seek + Sized,
+    B: BinRead<Args = ()>,
+    R: Read + Seek,
 {
-    pub fn new(mut reader: T) -> Self {
-        reader.seek(SeekFrom::Start(0)).unwrap();
-        let header: Header = reader.read_ne().unwrap();
-
+    fn new(mut reader: R, header: Header) -> Self {
         let alignment = 2u32.pow(header.alignment_power as u32);
         let bucket_offset = reader.stream_position().unwrap();
         debug_assert_eq!(bucket_offset, 256);
 
         let free_block_pool_offset =
-            bucket_offset + header.bucket_number * mem::size_of::<BucketElem>() as u64;
+            bucket_offset + header.bucket_number * mem::size_of::<B>() as u64;
 
-        TCHDB {
+        TCHDBImpl {
             reader,
             header,
             alignment,
             bucket_offset,
             free_block_pool_offset,
+            _bucket_type: PhantomData,
         }
     }
 
-    pub fn read_buckets(&mut self) -> Buckets {
+    pub fn read_buckets(&mut self) -> Buckets<B> {
         self.reader
             .seek(SeekFrom::Start(self.bucket_offset))
             .unwrap();
@@ -152,7 +145,7 @@ where
         pool
     }
 
-    pub fn read_records(&mut self) -> Vec<Record> {
+    pub fn read_records(&mut self) -> Vec<Record<B>> {
         self.reader
             .seek(SeekFrom::Start(self.header.first_record))
             .unwrap();
@@ -160,7 +153,7 @@ where
         let mut records = Vec::with_capacity(self.header.record_number as usize);
 
         loop {
-            let record: Record = self.reader.read_ne().unwrap();
+            let record: Record<B> = self.reader.read_ne().unwrap();
             records.push(record);
 
             let pos = self.reader.stream_position().unwrap();
@@ -188,6 +181,37 @@ where
             key,
             idx,
             hash: hash as u8,
+        }
+    }
+}
+
+pub enum TCHDB<R> {
+    Small(TCHDBImpl<u32, R>),
+    Large(TCHDBImpl<u64, R>),
+}
+
+impl TCHDB<File> {
+    pub fn open<T>(path: T) -> Self
+    where
+        T: AsRef<Path>,
+    {
+        let file = File::open(path).unwrap();
+        TCHDB::new(file)
+    }
+}
+
+impl<R> TCHDB<R>
+where
+    R: Read + Seek,
+{
+    pub fn new(mut reader: R) -> Self {
+        reader.seek(SeekFrom::Start(0)).unwrap();
+        let header: Header = reader.read_ne().unwrap();
+
+        if header.options & 0x01 == 0x01 {
+            TCHDB::Large(TCHDBImpl::new(reader, header))
+        } else {
+            TCHDB::Small(TCHDBImpl::new(reader, header))
         }
     }
 }
