@@ -79,13 +79,13 @@ where
     },
 }
 
-pub struct TCHDBImpl<S, T> {
-    pub reader: T,
+pub struct TCHDBImpl<B, R> {
+    pub reader: R,
     pub header: Header,
     pub alignment: u32,
     pub bucket_offset: u64, // always be 256
     pub free_block_pool_offset: u64,
-    _bucket_type: PhantomData<S>,
+    _bucket_type: PhantomData<B>,
 }
 
 impl<B, R> TCHDBImpl<B, R>
