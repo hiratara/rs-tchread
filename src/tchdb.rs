@@ -93,7 +93,6 @@ where
 pub struct TCHDBImpl<B, R> {
     pub reader: R,
     pub header: Header,
-    pub alignment: u32,
     pub bucket_offset: u64, // always be 256
     pub free_block_pool_offset: u64,
     _bucket_type: PhantomData<B>,
@@ -125,7 +124,6 @@ where
     R: Read + Seek,
 {
     fn new(mut reader: R, header: Header) -> Self {
-        let alignment = 2u32.pow(header.alignment_power as u32);
         let bucket_offset = reader.stream_position().unwrap();
         debug_assert_eq!(bucket_offset, 256);
 
@@ -135,7 +133,6 @@ where
         TCHDBImpl {
             reader,
             header,
-            alignment,
             bucket_offset,
             free_block_pool_offset,
             _bucket_type: PhantomData,

@@ -5,6 +5,7 @@ use std::{
     env,
     fmt::LowerHex,
     io::{Read, Seek},
+    ops::Shl,
 };
 
 use binread::BinRead;
@@ -22,8 +23,8 @@ fn main() {
 
 fn run_with_tchdb<B, R>(mut tchdb: TCHDBImpl<B, R>)
 where
-    B: BinRead<Args = ()> + std::fmt::Debug + std::ops::Mul + From<u32> + Eq + Copy,
-    <B as std::ops::Mul>::Output: LowerHex,
+    B: BinRead<Args = ()> + std::fmt::Debug + From<u32> + Eq + Copy + Shl<u8>,
+    <B as Shl<u8>>::Output: LowerHex,
     R: Read + Seek,
 {
     println!("{:?}", &tchdb.header);
@@ -36,7 +37,11 @@ where
         .enumerate()
         .filter(|&(_, &n)| n != 0.into())
     {
-        println!("bucket {} pos: {:#01x}", i, pos * tchdb.alignment.into());
+        println!(
+            "bucket {} pos: {:#01x}",
+            i,
+            pos << tchdb.header.alignment_power
+        );
     }
 
     println!(
@@ -46,7 +51,7 @@ where
     for elem in tchdb.read_free_block_pool().into_iter() {
         println!(
             "free_block_pool: offset={:#01x}, size={}",
-            &elem.offset.0 * tchdb.alignment,
+            &elem.offset.0 << tchdb.header.alignment_power,
             &elem.size.0
         );
     }
