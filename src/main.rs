@@ -23,25 +23,26 @@ fn main() {
 
 fn run_with_tchdb<B, R>(mut tchdb: TCHDBImpl<B, R>)
 where
-    B: BinRead<Args = ()> + std::fmt::Debug + From<u32> + Eq + Copy + Shl<u8>,
-    <B as Shl<u8>>::Output: LowerHex,
+    B: BinRead<Args = ()>
+        + std::fmt::Debug
+        + From<u32>
+        + Eq
+        + Copy
+        + Shl<u8, Output = B>
+        + LowerHex,
     R: Read + Seek,
 {
     println!("{:?}", &tchdb.header);
 
     let buckets: Buckets<B> = tchdb.read_buckets();
     println!("bucket length: {}", buckets.0.len());
-    for (i, &pos) in buckets
+    for (i, pos) in buckets
         .0
-        .iter()
+        .into_iter()
         .enumerate()
-        .filter(|&(_, &n)| n != 0.into())
+        .filter(|(_, n)| n.offset() != 0.into())
     {
-        println!(
-            "bucket {} pos: {:#01x}",
-            i,
-            pos << tchdb.header.alignment_power
-        );
+        println!("bucket {} pos: {:#01x}", i, pos.offset());
     }
 
     println!(

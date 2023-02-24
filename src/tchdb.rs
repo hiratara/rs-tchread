@@ -3,6 +3,7 @@ use std::{
     io::{Read, Seek, SeekFrom},
     marker::PhantomData,
     mem,
+    ops::Shl,
     path::Path,
 };
 
@@ -32,14 +33,34 @@ pub struct Header {
 }
 
 #[derive(BinRead, Debug)]
-#[br(import(bucket_number: u64))]
-pub struct Buckets<B>(#[br(count = bucket_number)] pub Vec<B>)
+#[br(import(alignment_power: u8))]
+pub struct RecordOffset<B>
+where
+    B: BinRead<Args = ()>,
+{
+    value: B,
+    #[br(calc = alignment_power)]
+    alignment_power: u8,
+}
+
+impl<B> RecordOffset<B>
+where
+    B: BinRead<Args = ()> + Copy + Shl<u8, Output = B>,
+{
+    pub fn offset(&self) -> B {
+        self.value << self.alignment_power
+    }
+}
+
+#[derive(BinRead, Debug)]
+#[br(import(alignment_power: u8, bucket_number: u64))]
+pub struct Buckets<B>(#[br(count = bucket_number, args(alignment_power))] pub Vec<RecordOffset<B>>)
 where
     B: BinRead<Args = ()>;
 
 #[derive(BinRead, Debug)]
 pub struct FreeBlockPoolElement {
-    pub offset: VNum<u32>,
+    pub offset: VNum<u32>, // TODO: recorded as the difference of the former free block and as the quotient by the alignment
     pub size: VNum<u32>,
 }
 
@@ -52,13 +73,16 @@ pub struct KeyWithHash<'a> {
 
 #[derive(BinRead, Debug)]
 #[br(little)]
+#[br(import(alignment_power: u8))]
 pub struct Record<B>
 where
     B: BinRead<Args = ()>,
 {
     pub hash_value: u8,
-    pub left_chain: B,
-    pub right_chain: B,
+    #[br(args(alignment_power))]
+    pub left_chain: RecordOffset<B>,
+    #[br(args(alignment_power))]
+    pub right_chain: RecordOffset<B>,
     pub padding_size: u16,
     pub key_size: VNum<u32>,
     pub value_size: VNum<u32>,
@@ -80,12 +104,13 @@ pub struct FreeBlock {
 
 #[derive(BinRead, Debug)]
 #[br(little)]
+#[br(import(alignment_power: u8))]
 pub enum RecordSpace<B>
 where
     B: BinRead<Args = ()>,
 {
     #[br(magic = 0xc8u8)]
-    Record(Record<B>),
+    Record(#[br(args(alignment_power))] Record<B>),
     #[br(magic = 0xb0u8)]
     FreeBlock(FreeBlock),
 }
@@ -168,7 +193,7 @@ where
             .unwrap();
         let buckets = self
             .reader
-            .read_ne_args((self.header.bucket_number,))
+            .read_ne_args((self.header.alignment_power, self.header.bucket_number))
             .unwrap();
 
         debug_assert_eq!(
@@ -187,7 +212,10 @@ where
         let mut records = Vec::with_capacity(self.header.record_number as usize);
 
         loop {
-            let record: RecordSpace<B> = self.reader.read_ne().unwrap();
+            let record: RecordSpace<B> = self
+                .reader
+                .read_ne_args((self.header.alignment_power,))
+                .unwrap();
             records.push(record);
 
             let pos = self.reader.stream_position().unwrap();
