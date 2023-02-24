@@ -25,11 +25,11 @@ fn run_with_tchdb<B, R>(mut tchdb: TCHDBImpl<B, R>)
 where
     B: BinRead<Args = ()>
         + std::fmt::Debug
-        + From<u32>
         + Eq
         + Copy
         + Shl<u8, Output = B>
-        + LowerHex,
+        + LowerHex
+        + Into<u64>,
     R: Read + Seek,
 {
     println!("{:?}", &tchdb.header);
@@ -40,7 +40,7 @@ where
         .0
         .into_iter()
         .enumerate()
-        .filter(|(_, n)| n.offset() != 0.into())
+        .filter(|(_, n)| n.offset() != 0)
     {
         println!("bucket {} pos: {:#01x}", i, pos.offset());
     }
@@ -60,7 +60,9 @@ where
     for record in tchdb.read_record_spaces() {
         println!("{:?}", &record);
         if let RecordSpace::Record(record) = record {
-            println!("calculated hash: {:?}", tchdb.hash(&record.key));
+            let key = tchdb.hash(&record.key);
+            println!("calculated hash: {:?}", key);
+            println!("got record: {:?}", tchdb.get(&key));
         }
     }
 }

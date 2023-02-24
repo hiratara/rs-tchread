@@ -45,10 +45,10 @@ where
 
 impl<B> RecordOffset<B>
 where
-    B: BinRead<Args = ()> + Copy + Shl<u8, Output = B>,
+    B: BinRead<Args = ()> + Copy + Shl<u8, Output = B> + Into<u64>,
 {
-    pub fn offset(&self) -> B {
-        self.value << self.alignment_power
+    pub fn offset(&self) -> u64 {
+        (self.value << self.alignment_power).into()
     }
 }
 
@@ -184,7 +184,7 @@ where
 
 impl<B, R> TCHDBImpl<B, R>
 where
-    B: BinRead<Args = ()>,
+    B: BinRead<Args = ()> + Copy + Shl<u8, Output = B> + Into<u64>,
     R: Read + Seek,
 {
     pub fn read_buckets(&mut self) -> Buckets<B> {
@@ -225,6 +225,28 @@ where
         }
 
         records
+    }
+
+    fn read_bucket(&mut self, idx: u64) -> RecordOffset<B> {
+        let pos = self.bucket_offset + mem::size_of::<B>() as u64 * idx;
+        self.reader.seek(SeekFrom::Start(pos)).unwrap();
+        self.reader
+            .read_ne_args((self.header.alignment_power,))
+            .unwrap()
+    }
+
+    fn read_record(&mut self, rec_off: RecordOffset<B>) -> RecordSpace<B> {
+        self.reader
+            .seek(SeekFrom::Start(rec_off.offset().into()))
+            .unwrap();
+        self.reader
+            .read_ne_args((self.header.alignment_power,))
+            .unwrap()
+    }
+
+    pub fn get(&mut self, key: &KeyWithHash) -> RecordSpace<B> {
+        let rec_off = self.read_bucket(key.idx);
+        self.read_record(rec_off)
     }
 }
 
