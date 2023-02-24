@@ -52,31 +52,42 @@ pub struct KeyWithHash<'a> {
 
 #[derive(BinRead, Debug)]
 #[br(little)]
-pub enum Record<B>
+pub struct Record<B>
+where
+    B: BinRead<Args = ()>,
+{
+    pub hash_value: u8,
+    pub left_chain: B,
+    pub right_chain: B,
+    pub padding_size: u16,
+    pub key_size: VNum<u32>,
+    pub value_size: VNum<u32>,
+    #[br(count = key_size.0)]
+    pub key: Vec<u8>,
+    #[br(count = value_size.0)]
+    pub value: Vec<u8>,
+    #[br(count = padding_size)]
+    pub padding: Vec<u8>,
+}
+
+#[derive(BinRead, Debug)]
+#[br(little)]
+pub struct FreeBlock {
+    pub block_size: u32,
+    #[br(count = block_size - 5)]
+    pub padding: Vec<u8>,
+}
+
+#[derive(BinRead, Debug)]
+#[br(little)]
+pub enum RecordSpace<B>
 where
     B: BinRead<Args = ()>,
 {
     #[br(magic = 0xc8u8)]
-    Record {
-        hash_value: u8,
-        left_chain: B,
-        right_chain: B,
-        padding_size: u16,
-        key_size: VNum<u32>,
-        value_size: VNum<u32>,
-        #[br(count = key_size.0)]
-        key: Vec<u8>,
-        #[br(count = value_size.0)]
-        value: Vec<u8>,
-        #[br(count = padding_size)]
-        padding: Vec<u8>,
-    },
+    Record(Record<B>),
     #[br(magic = 0xb0u8)]
-    FreeBlock {
-        block_size: u32,
-        #[br(count = block_size - 5)]
-        padding: Vec<u8>,
-    },
+    FreeBlock(FreeBlock),
 }
 
 pub struct TCHDBImpl<B, R> {
@@ -171,7 +182,7 @@ where
         buckets
     }
 
-    pub fn read_records(&mut self) -> Vec<Record<B>> {
+    pub fn read_record_spaces(&mut self) -> Vec<RecordSpace<B>> {
         self.reader
             .seek(SeekFrom::Start(self.header.first_record))
             .unwrap();
@@ -179,7 +190,7 @@ where
         let mut records = Vec::with_capacity(self.header.record_number as usize);
 
         loop {
-            let record: Record<B> = self.reader.read_ne().unwrap();
+            let record: RecordSpace<B> = self.reader.read_ne().unwrap();
             records.push(record);
 
             let pos = self.reader.stream_position().unwrap();

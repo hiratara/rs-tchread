@@ -10,7 +10,7 @@ use std::{
 use binread::BinRead;
 use tchdb::TCHDB;
 
-use crate::tchdb::{Buckets, Record, TCHDBImpl};
+use crate::tchdb::{Buckets, RecordSpace, TCHDBImpl};
 
 fn main() {
     let path = env::args().take(2).last().unwrap();
@@ -51,10 +51,10 @@ where
         );
     }
 
-    for record in tchdb.read_records() {
+    for record in tchdb.read_record_spaces() {
         println!("{:?}", &record);
-        if let Record::Record { key, .. } = record {
-            println!("calculated hash: {:?}", tchdb.hash(&key));
+        if let RecordSpace::Record(record) = record {
+            println!("calculated hash: {:?}", tchdb.hash(&record.key));
         }
     }
 }
