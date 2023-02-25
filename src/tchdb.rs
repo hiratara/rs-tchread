@@ -32,7 +32,7 @@ pub struct Header {
     pub opaque_region: Vec<u8>,
 }
 
-#[derive(BinRead, Debug)]
+#[derive(BinRead, Clone, Copy, Debug)]
 #[br(import(alignment_power: u8))]
 pub struct RecordOffset<B>
 where
@@ -252,9 +252,38 @@ where
             .unwrap()
     }
 
-    pub fn get(&mut self, key: &KeyWithHash) -> RecordSpace<B> {
-        let rec_off = self.read_bucket(key.idx);
-        self.read_record(rec_off)
+    pub fn get_record(&mut self, key: &KeyWithHash) -> Option<Record<B>> {
+        let mut rec_off = self.read_bucket(key.idx);
+        loop {
+            let record = match self.read_record(rec_off) {
+                RecordSpace::FreeBlock(_) => return None,
+                RecordSpace::Record(r) => r,
+            };
+
+            if key.hash > record.hash_value {
+                rec_off = record.left_chain;
+                continue;
+            } else if key.hash < record.hash_value {
+                rec_off = record.right_chain;
+                continue;
+            } else if key.key > &record.key {
+                rec_off = record.left_chain;
+                continue;
+            } else if key.key < &record.key {
+                rec_off = record.right_chain;
+                continue;
+            } else {
+                return Some(record);
+            }
+        }
+    }
+
+    pub fn get(&mut self, key_str: &str) -> Option<String> {
+        let key = self.hash(key_str.as_bytes());
+        match self.get_record(&key) {
+            None => None,
+            Some(record) => Some(String::from_utf8(record.value).unwrap()),
+        }
     }
 }
 

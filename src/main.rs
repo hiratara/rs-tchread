@@ -57,7 +57,17 @@ where
         if let RecordSpace::Record(record) = record {
             let key = tchdb.hash(&record.key);
             println!("calculated hash: {:?}", key);
-            println!("got record: {:?}", tchdb.get(&key));
+            println!("got record: {:?}", tchdb.get_record(&key));
         }
     }
+
+    println!("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
+
+    for c in 'a'..='z' {
+        let value = tchdb.get(&c.to_string());
+        println!("{:?} => {:?}", c, value);
+    }
+
+    let value = tchdb.get("NOT_EXIST");
+    println!("NOT_EXIST => {:?}", value);
 }
