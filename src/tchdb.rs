@@ -1,4 +1,5 @@
 use std::{
+    cmp::Ordering,
     fs::File,
     io::{Read, Seek, SeekFrom},
     marker::PhantomData,
@@ -266,14 +267,18 @@ where
             } else if key.hash < record.hash_value {
                 rec_off = record.right_chain;
                 continue;
-            } else if key.key > &record.key {
-                rec_off = record.left_chain;
-                continue;
-            } else if key.key < &record.key {
-                rec_off = record.right_chain;
-                continue;
-            } else {
-                return Some(record);
+            }
+
+            match key.key.cmp(&record.key) {
+                Ordering::Greater => {
+                    rec_off = record.left_chain;
+                    continue;
+                }
+                Ordering::Less => {
+                    rec_off = record.right_chain;
+                    continue;
+                }
+                Ordering::Equal => return Some(record),
             }
         }
     }
