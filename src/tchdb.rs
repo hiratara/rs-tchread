@@ -244,7 +244,7 @@ where
             .unwrap()
     }
 
-    fn read_record(&mut self, rec_off: RecordOffset<B>) -> RecordSpace<B> {
+    fn read_record_space(&mut self, rec_off: RecordOffset<B>) -> RecordSpace<B> {
         self.reader
             .seek(SeekFrom::Start(rec_off.offset().into()))
             .unwrap();
@@ -256,7 +256,11 @@ where
     pub fn get_record(&mut self, key: &KeyWithHash) -> Option<Record<B>> {
         let mut rec_off = self.read_bucket(key.idx);
         loop {
-            let record = match self.read_record(rec_off) {
+            if rec_off.value.into() <= 0 {
+                return None;
+            }
+
+            let record = match self.read_record_space(rec_off) {
                 RecordSpace::FreeBlock(_) => return None,
                 RecordSpace::Record(r) => r,
             };
