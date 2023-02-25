@@ -8,7 +8,7 @@ use std::{
     ops::Shl,
 };
 
-use binread::BinRead;
+use binrw::BinRead;
 use tchdb::TCHDB;
 
 use crate::tchdb::{Buckets, RecordSpace, TCHDBImpl};
@@ -23,13 +23,8 @@ fn main() {
 
 fn run_with_tchdb<B, R>(mut tchdb: TCHDBImpl<B, R>)
 where
-    B: BinRead<Args = ()>
-        + std::fmt::Debug
-        + Eq
-        + Copy
-        + Shl<u8, Output = B>
-        + LowerHex
-        + Into<u64>,
+    B: 'static + BinRead + Copy + std::fmt::Debug + Eq + Shl<u8, Output = B> + LowerHex + Into<u64>,
+    <B as BinRead>::Args<'static>: Default,
     R: Read + Seek,
 {
     println!("{:?}", &tchdb.header);

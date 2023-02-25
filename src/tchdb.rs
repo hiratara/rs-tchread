@@ -7,7 +7,7 @@ use std::{
     path::Path,
 };
 
-use binread::{BinRead, BinReaderExt};
+use binrw::{BinRead, BinReaderExt};
 
 use crate::vnum::VNum;
 
@@ -36,7 +36,8 @@ pub struct Header {
 #[br(import(alignment_power: u8))]
 pub struct RecordOffset<B>
 where
-    B: BinRead<Args = ()>,
+    B: BinRead,
+    <B as BinRead>::Args<'static>: Default,
 {
     value: B,
     #[br(calc = alignment_power)]
@@ -45,7 +46,8 @@ where
 
 impl<B> RecordOffset<B>
 where
-    B: BinRead<Args = ()> + Copy + Shl<u8, Output = B> + Into<u64>,
+    B: BinRead + Copy + Shl<u8, Output = B> + Into<u64>,
+    <B as BinRead>::Args<'static>: Default,
 {
     pub fn offset(&self) -> u64 {
         (self.value << self.alignment_power).into()
@@ -54,9 +56,12 @@ where
 
 #[derive(BinRead, Debug)]
 #[br(import(alignment_power: u8, bucket_number: u64))]
-pub struct Buckets<B>(#[br(count = bucket_number, args(alignment_power))] pub Vec<RecordOffset<B>>)
+pub struct Buckets<B>(
+    #[br(count = bucket_number, args{inner: (alignment_power, )})] pub Vec<RecordOffset<B>>,
+)
 where
-    B: BinRead<Args = ()>;
+    B: 'static + BinRead,
+    <B as BinRead>::Args<'static>: Default;
 
 #[derive(BinRead, Debug)]
 pub struct FreeBlockPoolElement {
@@ -76,7 +81,8 @@ pub struct KeyWithHash<'a> {
 #[br(import(alignment_power: u8))]
 pub struct Record<B>
 where
-    B: BinRead<Args = ()>,
+    B: BinRead,
+    <B as BinRead>::Args<'static>: Default,
 {
     pub hash_value: u8,
     #[br(args(alignment_power))]
@@ -107,7 +113,8 @@ pub struct FreeBlock {
 #[br(import(alignment_power: u8))]
 pub enum RecordSpace<B>
 where
-    B: BinRead<Args = ()>,
+    B: BinRead,
+    <B as BinRead>::Args<'static>: Default,
 {
     #[br(magic = 0xc8u8)]
     Record(#[br(args(alignment_power))] Record<B>),
@@ -184,7 +191,8 @@ where
 
 impl<B, R> TCHDBImpl<B, R>
 where
-    B: BinRead<Args = ()> + Copy + Shl<u8, Output = B> + Into<u64>,
+    B: BinRead + Copy + Shl<u8, Output = B> + Into<u64>,
+    <B as BinRead>::Args<'static>: Default,
     R: Read + Seek,
 {
     pub fn read_buckets(&mut self) -> Buckets<B> {
