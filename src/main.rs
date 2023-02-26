@@ -9,19 +9,32 @@ use std::{
 };
 
 use binrw::BinRead;
+use structopt::StructOpt;
 use tchdb::TCHDB;
 
 use crate::tchdb::{Buckets, RecordSpace, TCHDBImpl};
 
+#[derive(StructOpt)]
+enum Command {
+    Test { path: String },
+    Get { path: String, key: String },
+}
+
 fn main() {
-    let path = env::args().take(2).last().unwrap();
-    match TCHDB::open(&path) {
-        TCHDB::Large(tchdb) => run_with_tchdb(tchdb),
-        TCHDB::Small(tchdb) => run_with_tchdb(tchdb),
+    match Command::from_args() {
+        Command::Test { path } => run_test(&path),
+        Command::Get { path, key } => run_get(&path, &key),
     }
 }
 
-fn run_with_tchdb<B, R>(mut tchdb: TCHDBImpl<B, R>)
+fn run_test(path: &str) {
+    match TCHDB::open(&path) {
+        TCHDB::Large(tchdb) => run_test_with_tchdb(tchdb),
+        TCHDB::Small(tchdb) => run_test_with_tchdb(tchdb),
+    }
+}
+
+fn run_test_with_tchdb<B, R>(mut tchdb: TCHDBImpl<B, R>)
 where
     B: 'static + BinRead + Copy + std::fmt::Debug + Eq + Shl<u8, Output = B> + LowerHex + Into<u64>,
     <B as BinRead>::Args<'static>: Default,
@@ -70,4 +83,22 @@ where
 
     let value = tchdb.get("NOT_EXIST");
     println!("NOT_EXIST => {:?}", value);
+}
+
+fn run_get(path: &str, key: &str) {
+    match TCHDB::open(&path) {
+        TCHDB::Large(tchdb) => run_get_with_tchdb(tchdb, key),
+        TCHDB::Small(tchdb) => run_get_with_tchdb(tchdb, key),
+    }
+}
+
+fn run_get_with_tchdb<B, R>(mut tchdb: TCHDBImpl<B, R>, key: &str)
+where
+    B: 'static + BinRead + Copy + std::fmt::Debug + Eq + Shl<u8, Output = B> + LowerHex + Into<u64>,
+    <B as BinRead>::Args<'static>: Default,
+    R: Read + Seek,
+{
+    if let Some(value) = tchdb.get(key) {
+        println!("{}", value);
+    }
 }
