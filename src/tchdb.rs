@@ -123,6 +123,33 @@ where
     FreeBlock(FreeBlock),
 }
 
+pub struct RecordSpaceIter<'a, R, B> {
+    reader: &'a mut R,
+    header: &'a Header,
+    _bucket_type: PhantomData<B>,
+}
+
+impl<'a, R, B> Iterator for RecordSpaceIter<'a, R, B>
+where
+    R: Read + Seek,
+    B: BinRead,
+    <B as BinRead>::Args<'static>: Default,
+{
+    type Item = RecordSpace<B>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let pos = self.reader.stream_position().unwrap();
+        if pos >= self.header.file_size {
+            return None;
+        }
+        Some(
+            self.reader
+                .read_ne_args((self.header.alignment_power,))
+                .unwrap(),
+        )
+    }
+}
+
 pub struct TCHDBImpl<B, R> {
     pub reader: R,
     pub header: Header,
@@ -213,27 +240,16 @@ where
         buckets
     }
 
-    pub fn read_record_spaces(&mut self) -> Vec<RecordSpace<B>> {
+    pub fn read_record_spaces<'a>(&'a mut self) -> RecordSpaceIter<'a, R, B> {
         self.reader
             .seek(SeekFrom::Start(self.header.first_record))
             .unwrap();
 
-        let mut records = Vec::with_capacity(self.header.record_number as usize);
-
-        loop {
-            let record: RecordSpace<B> = self
-                .reader
-                .read_ne_args((self.header.alignment_power,))
-                .unwrap();
-            records.push(record);
-
-            let pos = self.reader.stream_position().unwrap();
-            if pos >= self.header.file_size {
-                break;
-            }
+        RecordSpaceIter {
+            reader: &mut self.reader,
+            header: &mut self.header,
+            _bucket_type: PhantomData,
         }
-
-        records
     }
 
     fn read_bucket(&mut self, idx: u64) -> RecordOffset<B> {
