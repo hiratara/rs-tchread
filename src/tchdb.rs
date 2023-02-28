@@ -247,7 +247,7 @@ where
 
         RecordSpaceIter {
             reader: &mut self.reader,
-            header: &mut self.header,
+            header: &self.header,
             _bucket_type: PhantomData,
         }
     }
