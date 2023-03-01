@@ -2,7 +2,6 @@ mod tchdb;
 mod vnum;
 
 use std::{
-    env,
     fmt::LowerHex,
     io::{Read, Seek},
     ops::Shl,
