@@ -66,11 +66,11 @@ where
 
     for record in tchdb.read_record_spaces() {
         println!("{:?}", &record);
-        if let RecordSpace::Record(record) = record {
-            let key = tchdb.hash(&record.key);
-            println!("calculated hash: {:?}", key);
-            println!("got record: {:?}", tchdb.get_record(&key));
-        }
+        // if let RecordSpace::Record(record) = record {
+        //     let key = tchdb.hash(&record.key);
+        //     println!("calculated hash: {:?}", key);
+        //     println!("got record: {:?}", tchdb.get_record(&key));
+        // }
     }
 
     println!("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
