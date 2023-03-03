@@ -3,6 +3,7 @@ mod vnum;
 
 use std::{
     fmt::LowerHex,
+    fs::File,
     io::{Read, Seek},
     ops::Shl,
 };
@@ -33,11 +34,10 @@ fn run_test(path: &str) {
     }
 }
 
-fn run_test_with_tchdb<B, R>(mut tchdb: TCHDBImpl<B, R>)
+fn run_test_with_tchdb<B>(mut tchdb: TCHDBImpl<B, File>)
 where
     B: 'static + BinRead + Copy + std::fmt::Debug + Eq + Shl<u8, Output = B> + LowerHex + Into<u64>,
     <B as BinRead>::Args<'static>: Default,
-    R: Read + Seek,
 {
     println!("{:?}", &tchdb.header);
 
@@ -66,11 +66,11 @@ where
 
     for record in tchdb.read_record_spaces() {
         println!("{:?}", &record);
-        // if let RecordSpace::Record(record) = record {
-        //     let key = tchdb.hash(&record.key);
-        //     println!("calculated hash: {:?}", key);
-        //     println!("got record: {:?}", tchdb.get_record(&key));
-        // }
+        if let RecordSpace::Record(record) = record {
+            let key = tchdb.hash(&record.key);
+            println!("calculated hash: {:?}", key);
+            println!("got record: {:?}", tchdb.get_record(&key));
+        }
     }
 
     println!("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");

@@ -123,13 +123,14 @@ where
     FreeBlock(FreeBlock),
 }
 
-pub struct RecordSpaceIter<'a, R, B> {
-    reader: &'a mut R,
-    header: &'a Header,
+pub struct RecordSpaceIter<R, B> {
+    reader: R,
+    file_size: u64,
+    alignment_power: u8,
     _bucket_type: PhantomData<B>,
 }
 
-impl<'a, R, B> Iterator for RecordSpaceIter<'a, R, B>
+impl<R, B> Iterator for RecordSpaceIter<R, B>
 where
     R: Read + Seek,
     B: BinRead,
@@ -139,14 +140,10 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         let pos = self.reader.stream_position().unwrap();
-        if pos >= self.header.file_size {
+        if pos >= self.file_size {
             return None;
         }
-        Some(
-            self.reader
-                .read_ne_args((self.header.alignment_power,))
-                .unwrap(),
-        )
+        Some(self.reader.read_ne_args((self.alignment_power,)).unwrap())
     }
 }
 
@@ -240,18 +237,6 @@ where
         buckets
     }
 
-    pub fn read_record_spaces<'a>(&'a mut self) -> RecordSpaceIter<'a, R, B> {
-        self.reader
-            .seek(SeekFrom::Start(self.header.first_record))
-            .unwrap();
-
-        RecordSpaceIter {
-            reader: &mut self.reader,
-            header: &self.header,
-            _bucket_type: PhantomData,
-        }
-    }
-
     fn read_bucket(&mut self, idx: u64) -> RecordOffset<B> {
         let pos = self.bucket_offset + mem::size_of::<B>() as u64 * idx;
         self.reader.seek(SeekFrom::Start(pos)).unwrap();
@@ -308,6 +293,22 @@ where
         match self.get_record(&key) {
             None => None,
             Some(record) => Some(String::from_utf8(record.value).unwrap()),
+        }
+    }
+}
+
+impl<B> TCHDBImpl<B, File> {
+    pub fn read_record_spaces(&self) -> RecordSpaceIter<File, B> {
+        let mut cloned_file = self.reader.try_clone().unwrap();
+        cloned_file
+            .seek(SeekFrom::Start(self.header.first_record))
+            .unwrap();
+
+        RecordSpaceIter {
+            reader: cloned_file,
+            file_size: self.header.file_size,
+            alignment_power: self.header.alignment_power,
+            _bucket_type: PhantomData,
         }
     }
 }
