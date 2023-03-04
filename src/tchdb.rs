@@ -1,5 +1,7 @@
+mod multi_read;
+mod vnum;
+
 use std::{
-    cell::RefCell,
     cmp::Ordering,
     fs::File,
     io::{BufReader, Read, Seek, SeekFrom},
@@ -7,12 +9,13 @@ use std::{
     mem,
     ops::Shl,
     path::Path,
-    rc::Rc,
 };
 
 use binrw::{BinRead, BinReaderExt};
 
-use crate::vnum::VNum;
+use vnum::VNum;
+
+use self::multi_read::MultiRead;
 
 #[derive(BinRead, Debug)]
 #[br(little)]
@@ -340,32 +343,6 @@ impl TCHDB<MultiRead<BufReader<File>>> {
         let file = File::open(path).unwrap();
         let file = BufReader::new(file);
         TCHDB::new(MultiRead::new(file))
-    }
-}
-
-pub struct MultiRead<R>(Rc<RefCell<R>>);
-
-impl<R> MultiRead<R> {
-    fn new(reader: R) -> Self {
-        MultiRead(Rc::new(RefCell::new(reader)))
-    }
-}
-
-impl<R: Read> Read for MultiRead<R> {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        self.0.borrow_mut().read(buf)
-    }
-}
-
-impl<R: Seek> Seek for MultiRead<R> {
-    fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
-        self.0.borrow_mut().seek(pos)
-    }
-}
-
-impl<R> Clone for MultiRead<R> {
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
     }
 }
 
