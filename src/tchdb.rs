@@ -1,4 +1,5 @@
 use std::{
+    cell::RefCell,
     cmp::Ordering,
     fs::File,
     io::{Read, Seek, SeekFrom},
@@ -6,6 +7,7 @@ use std::{
     mem,
     ops::Shl,
     path::Path,
+    rc::Rc,
 };
 
 use binrw::{BinRead, BinReaderExt};
@@ -124,10 +126,23 @@ where
 }
 
 pub struct RecordSpaceIter<R, B> {
-    reader: R,
+    reader: Rc<RefCell<R>>,
     file_size: u64,
     alignment_power: u8,
+    next_pos: u64,
     _bucket_type: PhantomData<B>,
+}
+
+impl<R, B> RecordSpaceIter<R, B> {
+    fn new(reader: Rc<RefCell<R>>, header: &Header) -> Self {
+        RecordSpaceIter {
+            reader,
+            file_size: header.file_size,
+            alignment_power: header.alignment_power,
+            next_pos: header.first_record,
+            _bucket_type: PhantomData,
+        }
+    }
 }
 
 impl<R, B> Iterator for RecordSpaceIter<R, B>
@@ -139,16 +154,21 @@ where
     type Item = RecordSpace<B>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let pos = self.reader.stream_position().unwrap();
-        if pos >= self.file_size {
+        if self.next_pos >= self.file_size {
             return None;
         }
-        Some(self.reader.read_ne_args((self.alignment_power,)).unwrap())
+
+        let mut reader = self.reader.borrow_mut();
+        reader.seek(SeekFrom::Start(self.next_pos)).unwrap();
+        let item = reader.read_ne_args((self.alignment_power,)).unwrap();
+
+        self.next_pos = reader.stream_position().unwrap();
+        Some(item)
     }
 }
 
 pub struct TCHDBImpl<B, R> {
-    pub reader: R,
+    pub reader: Rc<RefCell<R>>,
     pub header: Header,
     pub bucket_offset: u64, // always be 256
     pub free_block_pool_offset: u64,
@@ -188,7 +208,7 @@ where
             bucket_offset + header.bucket_number * mem::size_of::<B>() as u64;
 
         TCHDBImpl {
-            reader,
+            reader: Rc::new(RefCell::new(reader)),
             header,
             bucket_offset,
             free_block_pool_offset,
@@ -197,14 +217,15 @@ where
     }
 
     pub fn read_free_block_pool(&mut self) -> Vec<FreeBlockPoolElement> {
-        self.reader
+        let mut reader = self.reader.borrow_mut();
+        reader
             .seek(SeekFrom::Start(self.free_block_pool_offset))
             .unwrap();
 
         let pool_size = 2usize.pow(self.header.free_block_pool_power as u32);
         let mut pool = Vec::with_capacity(pool_size);
         loop {
-            let elem: FreeBlockPoolElement = self.reader.read_ne().unwrap();
+            let elem: FreeBlockPoolElement = reader.read_ne().unwrap();
             if elem.offset.0 == 0 && elem.size.0 == 0 {
                 break;
             }
@@ -221,37 +242,37 @@ where
     R: Read + Seek,
 {
     pub fn read_buckets(&mut self) -> Buckets<B> {
-        self.reader
-            .seek(SeekFrom::Start(self.bucket_offset))
-            .unwrap();
-        let buckets = self
-            .reader
+        let mut reader = self.reader.borrow_mut();
+        reader.seek(SeekFrom::Start(self.bucket_offset)).unwrap();
+        let buckets = reader
             .read_ne_args((self.header.alignment_power, self.header.bucket_number))
             .unwrap();
 
         debug_assert_eq!(
-            self.reader.stream_position().unwrap(),
+            reader.stream_position().unwrap(),
             self.free_block_pool_offset
         );
 
         buckets
     }
 
+    pub fn read_record_spaces(&mut self) -> RecordSpaceIter<R, B> {
+        RecordSpaceIter::new(self.reader.clone(), &self.header)
+    }
+
     fn read_bucket(&mut self, idx: u64) -> RecordOffset<B> {
+        let mut reader = self.reader.borrow_mut();
         let pos = self.bucket_offset + mem::size_of::<B>() as u64 * idx;
-        self.reader.seek(SeekFrom::Start(pos)).unwrap();
-        self.reader
-            .read_ne_args((self.header.alignment_power,))
-            .unwrap()
+        reader.seek(SeekFrom::Start(pos)).unwrap();
+        reader.read_ne_args((self.header.alignment_power,)).unwrap()
     }
 
     fn read_record_space(&mut self, rec_off: RecordOffset<B>) -> RecordSpace<B> {
-        self.reader
+        let mut reader = self.reader.borrow_mut();
+        reader
             .seek(SeekFrom::Start(rec_off.offset().into()))
             .unwrap();
-        self.reader
-            .read_ne_args((self.header.alignment_power,))
-            .unwrap()
+        reader.read_ne_args((self.header.alignment_power,)).unwrap()
     }
 
     pub fn get_record(&mut self, key: &KeyWithHash) -> Option<Record<B>> {
@@ -293,22 +314,6 @@ where
         match self.get_record(&key) {
             None => None,
             Some(record) => Some(String::from_utf8(record.value).unwrap()),
-        }
-    }
-}
-
-impl<B> TCHDBImpl<B, File> {
-    pub fn read_record_spaces(&self) -> RecordSpaceIter<File, B> {
-        let mut cloned_file = self.reader.try_clone().unwrap();
-        cloned_file
-            .seek(SeekFrom::Start(self.header.first_record))
-            .unwrap();
-
-        RecordSpaceIter {
-            reader: cloned_file,
-            file_size: self.header.file_size,
-            alignment_power: self.header.alignment_power,
-            _bucket_type: PhantomData,
         }
     }
 }
