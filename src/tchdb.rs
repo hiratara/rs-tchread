@@ -2,7 +2,7 @@ use std::{
     cell::RefCell,
     cmp::Ordering,
     fs::File,
-    io::{Read, Seek, SeekFrom},
+    io::{BufReader, Read, Seek, SeekFrom},
     marker::PhantomData,
     mem,
     ops::Shl,
@@ -323,12 +323,13 @@ pub enum TCHDB<R> {
     Large(TCHDBImpl<u64, R>),
 }
 
-impl TCHDB<File> {
+impl TCHDB<BufReader<File>> {
     pub fn open<T>(path: T) -> Self
     where
         T: AsRef<Path>,
     {
         let file = File::open(path).unwrap();
+        let file = BufReader::new(file);
         TCHDB::new(file)
     }
 }
