@@ -238,7 +238,7 @@ where
 
 impl<B, R> TCHDBImpl<B, R>
 where
-    B: BinRead + Copy + Shl<u8, Output = B> + Into<u64>,
+    B: BinRead,
     <B as BinRead>::Args<'static>: Default,
     R: Read + Seek,
 {
@@ -266,11 +266,16 @@ where
             .read_ne_args((self.header.alignment_power,))
             .unwrap()
     }
+}
 
+impl<B, R> TCHDBImpl<B, R>
+where
+    B: BinRead + Copy + Shl<u8, Output = B> + Into<u64>,
+    <B as BinRead>::Args<'static>: Default,
+    R: Read + Seek,
+{
     fn read_record_space(&mut self, rec_off: RecordOffset<B>) -> RecordSpace<B> {
-        self.reader
-            .seek(SeekFrom::Start(rec_off.offset().into()))
-            .unwrap();
+        self.reader.seek(SeekFrom::Start(rec_off.offset())).unwrap();
         self.reader
             .read_ne_args((self.header.alignment_power,))
             .unwrap()
@@ -319,12 +324,7 @@ where
     }
 }
 
-impl<B, R> TCHDBImpl<B, R>
-where
-    B: BinRead + Copy + Shl<u8, Output = B> + Into<u64>,
-    <B as BinRead>::Args<'static>: Default,
-    R: Read + Seek + Clone,
-{
+impl<B, R: Clone> TCHDBImpl<B, R> {
     pub fn read_record_spaces(&mut self) -> RecordSpaceIter<R, B> {
         RecordSpaceIter::new(self.reader.clone(), &self.header)
     }
