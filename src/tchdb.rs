@@ -335,8 +335,19 @@ pub enum TCHDB<R> {
     Large(TCHDBImpl<u64, R>),
 }
 
-impl TCHDB<MultiRead<BufReader<File>>> {
+impl TCHDB<BufReader<File>> {
     pub fn open<T>(path: T) -> Self
+    where
+        T: AsRef<Path>,
+    {
+        let file = File::open(path).unwrap();
+        let file = BufReader::new(file);
+        TCHDB::new(file)
+    }
+}
+
+impl TCHDB<MultiRead<BufReader<File>>> {
+    pub fn open_multi<T>(path: T) -> Self
     where
         T: AsRef<Path>,
     {

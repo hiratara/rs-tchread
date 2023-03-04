@@ -26,7 +26,7 @@ fn main() {
 }
 
 fn run_test(path: &str) {
-    match TCHDB::open(&path) {
+    match TCHDB::open_multi(&path) {
         TCHDB::Large(tchdb) => run_test_with_tchdb(tchdb),
         TCHDB::Small(tchdb) => run_test_with_tchdb(tchdb),
     }
