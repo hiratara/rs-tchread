@@ -174,7 +174,7 @@ pub struct TCHDBImpl<B, R> {
     pub header: Header,
     pub bucket_offset: u64, // always be 256
     pub free_block_pool_offset: u64,
-    _bucket_type: PhantomData<B>,
+    bucket_type: PhantomData<fn() -> B>,
 }
 
 impl<B, R> TCHDBImpl<B, R> {
@@ -214,7 +214,7 @@ where
             header,
             bucket_offset,
             free_block_pool_offset,
-            _bucket_type: PhantomData,
+            bucket_type: PhantomData,
         }
     }
 
