@@ -16,12 +16,14 @@ use crate::tchdb::{Buckets, RecordSpace, TCHDBImpl};
 enum Command {
     Test { path: String },
     Get { path: String, key: String },
+    GetTrace { path: String, key: String },
 }
 
 fn main() {
     match Command::from_args() {
         Command::Test { path } => run_test(&path),
         Command::Get { path, key } => run_get(&path, &key),
+        Command::GetTrace { path, key } => run_get_trace(&path, &key),
     }
 }
 
@@ -98,5 +100,36 @@ where
 {
     if let Some(value) = tchdb.get(key) {
         println!("{}", value);
+    }
+}
+
+fn run_get_trace(path: &str, key: &str) {
+    match TCHDB::open(&path) {
+        TCHDB::Large(tchdb) => run_get_trace_with_tchdb(tchdb, key),
+        TCHDB::Small(tchdb) => run_get_trace_with_tchdb(tchdb, key),
+    }
+}
+
+fn run_get_trace_with_tchdb<B, R>(mut tchdb: TCHDBImpl<B, R>, key: &str)
+where
+    B: 'static + BinRead + Copy + std::fmt::Debug + Eq + Shl<u8, Output = B> + LowerHex + Into<u64>,
+    <B as BinRead>::Args<'static>: Default,
+    R: Read + Seek,
+{
+    let (key_with_hash, found, visited_records) = tchdb.get_detail(key);
+    println!("bucket: {}", key_with_hash.idx);
+    println!("hash: {}", key_with_hash.hash);
+
+    let len = visited_records.len();
+    for (i, r) in visited_records.into_iter().enumerate() {
+        println!(
+            "record {}: hash={}, key={}",
+            i + 1,
+            r.hash_value,
+            String::from_utf8(r.key).unwrap(),
+        );
+        if found && i == len - 1 {
+            println!("{}", String::from_utf8(r.value).unwrap());
+        }
     }
 }

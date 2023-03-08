@@ -77,9 +77,9 @@ pub struct FreeBlockPoolElement {
 
 #[derive(Debug)]
 pub struct KeyWithHash<'a> {
-    key: &'a [u8],
-    idx: u64,
-    hash: u8,
+    pub key: &'a [u8],
+    pub idx: u64,
+    pub hash: u8,
 }
 
 #[derive(BinRead, Debug)]
@@ -282,35 +282,53 @@ where
     }
 
     pub fn get_record(&mut self, key: &KeyWithHash) -> Option<Record<B>> {
+        let (found, mut log) = self.get_record_detail(key);
+        if found {
+            Some(log.remove(log.len() - 1))
+        } else {
+            None
+        }
+    }
+
+    pub fn get_record_detail(&mut self, key: &KeyWithHash) -> (bool, Vec<Record<B>>) {
         let mut rec_off = self.read_bucket(key.idx);
+
+        let mut visited_records = Vec::new();
         loop {
             if rec_off.value.into() <= 0 {
-                return None;
+                return (false, visited_records);
             }
 
             let record = match self.read_record_space(rec_off) {
-                RecordSpace::FreeBlock(_) => return None,
+                RecordSpace::FreeBlock(_) => return (false, visited_records),
                 RecordSpace::Record(r) => r,
             };
 
             if key.hash > record.hash_value {
                 rec_off = record.left_chain;
+                visited_records.push(record);
                 continue;
             } else if key.hash < record.hash_value {
                 rec_off = record.right_chain;
+                visited_records.push(record);
                 continue;
             }
 
             match key.key.cmp(&record.key) {
                 Ordering::Greater => {
                     rec_off = record.left_chain;
+                    visited_records.push(record);
                     continue;
                 }
                 Ordering::Less => {
                     rec_off = record.right_chain;
+                    visited_records.push(record);
                     continue;
                 }
-                Ordering::Equal => return Some(record),
+                Ordering::Equal => {
+                    visited_records.push(record);
+                    return (true, visited_records);
+                }
             }
         }
     }
@@ -321,6 +339,12 @@ where
             None => None,
             Some(record) => Some(String::from_utf8(record.value).unwrap()),
         }
+    }
+
+    pub fn get_detail<'a>(&mut self, key_str: &'a str) -> (KeyWithHash<'a>, bool, Vec<Record<B>>) {
+        let key = self.hash(key_str.as_bytes());
+        let (found, visited_records) = self.get_record_detail(&key);
+        (key, found, visited_records)
     }
 }
 
