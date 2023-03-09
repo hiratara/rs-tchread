@@ -346,6 +346,32 @@ where
         let (found, visited_records) = self.get_record_detail(&key);
         (key, found, visited_records)
     }
+
+    pub fn dump_bucket(&mut self, bucket_number: u64) -> Vec<Record<B>> {
+        let mut records = Vec::new();
+        let rec_off = self.read_bucket(bucket_number);
+
+        self.traverse_records(rec_off, &mut records);
+
+        records
+    }
+
+    fn traverse_records(&mut self, rec_off: RecordOffset<B>, records: &mut Vec<Record<B>>) {
+        if rec_off.value.into() <= 0 {
+            return;
+        }
+
+        match self.read_record_space(rec_off) {
+            RecordSpace::FreeBlock(_) => panic!("unexpected freespace found: {}", rec_off.offset()),
+            RecordSpace::Record(record) => {
+                let right = record.right_chain;
+                let left = record.left_chain;
+                self.traverse_records(right, records);
+                records.push(record);
+                self.traverse_records(left, records);
+            }
+        }
+    }
 }
 
 impl<B, R: Clone> TCHDBImpl<B, R> {

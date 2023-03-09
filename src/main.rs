@@ -17,6 +17,7 @@ enum Command {
     Test { path: String },
     Get { path: String, key: String },
     GetTrace { path: String, key: String },
+    DumpBucket { path: String, bucket_number: u64 },
 }
 
 fn main() {
@@ -24,6 +25,10 @@ fn main() {
         Command::Test { path } => run_test(&path),
         Command::Get { path, key } => run_get(&path, &key),
         Command::GetTrace { path, key } => run_get_trace(&path, &key),
+        Command::DumpBucket {
+            path,
+            bucket_number,
+        } => run_dump_bucket(&path, bucket_number),
     }
 }
 
@@ -131,5 +136,29 @@ where
         if found && i == len - 1 {
             println!("{}", String::from_utf8(r.value).unwrap());
         }
+    }
+}
+
+fn run_dump_bucket(path: &str, bucket_number: u64) {
+    match TCHDB::open(&path) {
+        TCHDB::Large(tchdb) => run_dump_bucket_with_tchdb(tchdb, bucket_number),
+        TCHDB::Small(tchdb) => run_dump_bucket_with_tchdb(tchdb, bucket_number),
+    }
+}
+
+fn run_dump_bucket_with_tchdb<B, R>(mut tchdb: TCHDBImpl<B, R>, bucket_number: u64)
+where
+    B: 'static + BinRead + Copy + std::fmt::Debug + Eq + Shl<u8, Output = B> + LowerHex + Into<u64>,
+    <B as BinRead>::Args<'static>: Default,
+    R: Read + Seek,
+{
+    let records = tchdb.dump_bucket(bucket_number);
+    for (i, r) in records.into_iter().enumerate() {
+        println!(
+            "record {}: hash={}, key={}",
+            i + 1,
+            r.hash_value,
+            String::from_utf8(r.key).unwrap(),
+        );
     }
 }
