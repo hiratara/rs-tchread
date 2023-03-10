@@ -128,47 +128,6 @@ where
     FreeBlock(FreeBlock),
 }
 
-pub struct RecordSpaceIter<R, B> {
-    reader: R,
-    file_size: u64,
-    alignment_power: u8,
-    next_pos: u64,
-    _bucket_type: PhantomData<B>,
-}
-
-impl<R, B> RecordSpaceIter<R, B> {
-    fn new(reader: R, header: &Header) -> Self {
-        RecordSpaceIter {
-            reader,
-            file_size: header.file_size,
-            alignment_power: header.alignment_power,
-            next_pos: header.first_record,
-            _bucket_type: PhantomData,
-        }
-    }
-}
-
-impl<R, B> Iterator for RecordSpaceIter<R, B>
-where
-    R: Read + Seek,
-    B: BinRead,
-    <B as BinRead>::Args<'static>: Default,
-{
-    type Item = RecordSpace<B>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.next_pos >= self.file_size {
-            return None;
-        }
-
-        self.reader.seek(SeekFrom::Start(self.next_pos)).unwrap();
-        let item = self.reader.read_ne_args((self.alignment_power,)).unwrap();
-
-        self.next_pos = self.reader.stream_position().unwrap();
-        Some(item)
-    }
-}
-
 pub struct TCHDBImpl<B, R> {
     pub reader: R,
     pub header: Header,
@@ -371,12 +330,6 @@ where
                 self.traverse_records(left, records);
             }
         }
-    }
-}
-
-impl<B, R: Clone> TCHDBImpl<B, R> {
-    pub fn read_record_spaces(&mut self) -> RecordSpaceIter<R, B> {
-        RecordSpaceIter::new(self.reader.clone(), &self.header)
     }
 }
 

@@ -72,7 +72,7 @@ where
         );
     }
 
-    for record in tchdb.read_record_spaces() {
+    for record in tchdb.read_record_spaces_multi() {
         println!("{:?}", &record);
         if let RecordSpace::Record(record) = record {
             let key = tchdb.hash(&record.key);
@@ -179,7 +179,7 @@ where
     R: Read + Seek + Clone,
 {
     let mut stdout = io::stdout().lock();
-    for record in tchdb.read_record_spaces() {
+    for record in tchdb.read_record_spaces_multi() {
         if let RecordSpace::Record(record) = record {
             stdout.write_all(&record.key).unwrap();
             stdout.write_all(b"\n").unwrap();
