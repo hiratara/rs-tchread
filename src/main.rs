@@ -2,7 +2,7 @@ mod tchdb;
 
 use std::{
     fmt::LowerHex,
-    io::{Read, Seek},
+    io::{self, Read, Seek, Write},
     ops::Shl,
 };
 
@@ -18,6 +18,7 @@ enum Command {
     Get { path: String, key: String },
     GetTrace { path: String, key: String },
     DumpBucket { path: String, bucket_number: u64 },
+    List { path: String },
 }
 
 fn main() {
@@ -29,6 +30,7 @@ fn main() {
             path,
             bucket_number,
         } => run_dump_bucket(&path, bucket_number),
+        Command::List { path } => run_list(&path),
     }
 }
 
@@ -160,5 +162,27 @@ where
             r.hash_value,
             String::from_utf8(r.key).unwrap(),
         );
+    }
+}
+
+fn run_list(path: &str) {
+    match TCHDB::open_multi(&path) {
+        TCHDB::Large(tchdb) => run_list_with_tchdb(tchdb),
+        TCHDB::Small(tchdb) => run_list_with_tchdb(tchdb),
+    }
+}
+
+fn run_list_with_tchdb<B, R>(mut tchdb: TCHDBImpl<B, R>)
+where
+    B: 'static + BinRead + Copy + std::fmt::Debug + Eq + Shl<u8, Output = B> + LowerHex + Into<u64>,
+    <B as BinRead>::Args<'static>: Default,
+    R: Read + Seek + Clone,
+{
+    let mut stdout = io::stdout().lock();
+    for record in tchdb.read_record_spaces() {
+        if let RecordSpace::Record(record) = record {
+            stdout.write_all(&record.key).unwrap();
+            stdout.write_all(b"\n").unwrap();
+        }
     }
 }
