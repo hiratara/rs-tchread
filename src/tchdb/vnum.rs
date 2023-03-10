@@ -24,7 +24,7 @@ where
 
         loop {
             let x = T::from(<u8>::read_options(reader, endian, args)?);
-            if x < T::from(0xA0) {
+            if x < T::from(0x80) {
                 num += x * base;
                 break;
             }
