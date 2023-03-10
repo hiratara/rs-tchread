@@ -56,7 +56,7 @@ where
     <B as BinRead>::Args<'static>: Default,
 {
     pub fn offset(&self) -> u64 {
-        (self.value << self.alignment_power).into()
+        self.value.into() << self.alignment_power
     }
 }
 
