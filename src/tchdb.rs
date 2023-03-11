@@ -152,7 +152,7 @@ where
 
         let mut visited_records = Vec::new();
         loop {
-            if rec_off.value.into() <= 0 {
+            if rec_off.is_empty() {
                 return (false, visited_records);
             }
 
@@ -214,7 +214,7 @@ where
     }
 
     fn traverse_records(&mut self, rec_off: RecordOffset<B>, records: &mut Vec<Record<B>>) {
-        if rec_off.value.into() <= 0 {
+        if rec_off.is_empty() {
             return;
         }
 

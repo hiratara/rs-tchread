@@ -32,7 +32,7 @@ where
     B: BinRead,
     <B as BinRead>::Args<'static>: Default,
 {
-    pub value: B,
+    value: B,
     #[br(calc = alignment_power)]
     alignment_power: u8,
 }
@@ -44,6 +44,10 @@ where
 {
     pub fn offset(&self) -> u64 {
         self.value.into() << self.alignment_power
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.value.into() <= 0
     }
 }
 
