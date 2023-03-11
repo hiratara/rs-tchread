@@ -10,7 +10,10 @@ use binrw::BinRead;
 use structopt::StructOpt;
 use tchdb::TCHDB;
 
-use crate::tchdb::{Buckets, RecordSpace, TCHDBImpl};
+use crate::tchdb::{
+    binrw_types::{Buckets, RecordSpace},
+    TCHDBImpl,
+};
 
 #[derive(StructOpt)]
 enum Command {
