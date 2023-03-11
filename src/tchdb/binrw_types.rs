@@ -5,7 +5,6 @@ use binrw::BinRead;
 use super::vnum::VNum;
 
 #[derive(BinRead, Debug)]
-#[br(little)]
 pub struct Header {
     #[br(count = 32, assert(magic_number.starts_with(b"ToKyO CaBiNeT")))]
     pub magic_number: Vec<u8>,
@@ -67,7 +66,6 @@ pub struct FreeBlockPoolElement {
 }
 
 #[derive(BinRead, Debug)]
-#[br(little)]
 #[br(import(alignment_power: u8))]
 pub struct Record<B>
 where
@@ -91,7 +89,6 @@ where
 }
 
 #[derive(BinRead, Debug)]
-#[br(little)]
 pub struct FreeBlock {
     pub block_size: u32,
     #[br(count = block_size - 5)]
@@ -99,7 +96,6 @@ pub struct FreeBlock {
 }
 
 #[derive(BinRead, Debug)]
-#[br(little)]
 #[br(import(alignment_power: u8))]
 pub enum RecordSpace<B>
 where

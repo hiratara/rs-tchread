@@ -12,7 +12,7 @@ use std::{
     path::Path,
 };
 
-use binrw::{io::BufReader, BinRead, BinReaderExt, Error};
+use binrw::{io::BufReader, BinRead, BinReaderExt, Endian, Error};
 
 use self::{
     binrw_types::{Buckets, FreeBlockPoolElement, Header, Record, RecordOffset, RecordSpace},
@@ -28,6 +28,7 @@ pub struct KeyWithHash<'a> {
 
 pub struct TCHDBImpl<B, R> {
     pub reader: R,
+    pub endian: Endian,
     pub header: Header,
     pub bucket_offset: u64, // always be 256
     pub free_block_pool_offset: u64,
@@ -60,7 +61,7 @@ where
     R: Seek,
 {
     pub fn read_record_spaces<'a>(&'a mut self) -> RecordSpaceIter<'a, R, B> {
-        RecordSpaceIter::new(&mut self.reader, &self.header)
+        RecordSpaceIter::new(&mut self.reader, self.endian, &self.header)
     }
 }
 
@@ -68,7 +69,7 @@ impl<B, R> TCHDBImpl<B, R>
 where
     R: Read + Seek,
 {
-    fn new(mut reader: R, header: Header) -> Self {
+    fn new(mut reader: R, endian: Endian, header: Header) -> Self {
         let bucket_offset = reader.stream_position().unwrap();
         debug_assert_eq!(bucket_offset, 256);
 
@@ -77,6 +78,7 @@ where
 
         TCHDBImpl {
             reader,
+            endian,
             header,
             bucket_offset,
             free_block_pool_offset,
@@ -92,7 +94,7 @@ where
         let pool_size = 2usize.pow(self.header.free_block_pool_power as u32);
         let mut pool = Vec::with_capacity(pool_size);
         loop {
-            let elem: FreeBlockPoolElement = self.reader.read_ne().unwrap();
+            let elem: FreeBlockPoolElement = self.reader.read_type(self.endian).unwrap();
             if elem.offset.0 == 0 && elem.size.0 == 0 {
                 break;
             }
@@ -114,7 +116,10 @@ where
             .unwrap();
         let buckets = self
             .reader
-            .read_ne_args((self.header.alignment_power, self.header.bucket_number))
+            .read_type_args(
+                self.endian,
+                (self.header.alignment_power, self.header.bucket_number),
+            )
             .unwrap();
 
         debug_assert_eq!(
@@ -129,7 +134,7 @@ where
         let pos = self.bucket_offset + mem::size_of::<B>() as u64 * idx;
         self.reader.seek(SeekFrom::Start(pos)).unwrap();
         self.reader
-            .read_ne_args((self.header.alignment_power,))
+            .read_type_args(self.endian, (self.header.alignment_power,))
             .unwrap()
     }
 }
@@ -143,7 +148,7 @@ where
     fn read_record_space(&mut self, rec_off: RecordOffset<B>) -> RecordSpace<B> {
         self.reader.seek(SeekFrom::Start(rec_off.offset())).unwrap();
         self.reader
-            .read_ne_args((self.header.alignment_power,))
+            .read_type_args(self.endian, (self.header.alignment_power,))
             .unwrap()
     }
 
@@ -246,24 +251,38 @@ pub enum TCHDB<R> {
 }
 
 impl TCHDB<BufReader<File>> {
+    pub fn open_with_endian<T>(path: T, endian: Endian) -> Self
+    where
+        T: AsRef<Path>,
+    {
+        let file = File::open(path).unwrap();
+        let file = BufReader::new(file);
+        TCHDB::new(file, endian)
+    }
+
     pub fn open<T>(path: T) -> Self
     where
         T: AsRef<Path>,
     {
-        let file = File::open(path).unwrap();
-        let file = BufReader::new(file);
-        TCHDB::new(file)
+        Self::open_with_endian(path, Endian::Little)
     }
 }
 
 impl TCHDB<MultiRead<BufReader<File>>> {
-    pub fn open_multi<T>(path: T) -> Self
+    pub fn open_multi_with_endian<T>(path: T, endian: Endian) -> Self
     where
         T: AsRef<Path>,
     {
         let file = File::open(path).unwrap();
         let file = BufReader::new(file);
-        TCHDB::new(MultiRead::new(file))
+        TCHDB::new(MultiRead::new(file), endian)
+    }
+
+    pub fn open_multi<T>(path: T) -> Self
+    where
+        T: AsRef<Path>,
+    {
+        Self::open_multi_with_endian(path, Endian::Little)
     }
 }
 
@@ -271,31 +290,33 @@ impl<R> TCHDB<R>
 where
     R: Read + Seek,
 {
-    pub fn new(mut reader: R) -> Self {
+    pub fn new(mut reader: R, endian: Endian) -> Self {
         reader.seek(SeekFrom::Start(0)).unwrap();
-        let header: Header = reader.read_ne().unwrap();
+        let header: Header = reader.read_type(endian).unwrap();
 
         if header.options & 0x01 == 0x01 {
-            TCHDB::Large(TCHDBImpl::new(reader, header))
+            TCHDB::Large(TCHDBImpl::new(reader, endian, header))
         } else {
-            TCHDB::Small(TCHDBImpl::new(reader, header))
+            TCHDB::Small(TCHDBImpl::new(reader, endian, header))
         }
     }
 }
 
 pub struct RecordSpaceIter<'a, R, B> {
     reader: &'a mut R,
+    endian: Endian,
     file_size: u64,
     alignment_power: u8,
     bucket_type: PhantomData<fn() -> B>,
 }
 
 impl<'a, R: Seek, B> RecordSpaceIter<'a, R, B> {
-    fn new(reader: &'a mut R, header: &Header) -> Self {
+    fn new(reader: &'a mut R, endian: Endian, header: &Header) -> Self {
         reader.seek(SeekFrom::Start(header.first_record)).unwrap();
 
         RecordSpaceIter {
             reader,
+            endian,
             file_size: header.file_size,
             alignment_power: header.alignment_power,
             bucket_type: PhantomData,
@@ -312,7 +333,10 @@ where
     type Item = RecordSpace<B>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.reader.read_ne_args((self.alignment_power,)) {
+        match self
+            .reader
+            .read_type_args(self.endian, (self.alignment_power,))
+        {
             Ok(record_space) => record_space,
             Err(Error::EnumErrors { pos, .. }) if pos == self.file_size => None,
             Err(error) => panic!("{}", error),

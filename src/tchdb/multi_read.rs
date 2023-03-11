@@ -5,7 +5,7 @@ use std::{
     rc::Rc,
 };
 
-use binrw::{BinRead, BinReaderExt};
+use binrw::{BinRead, BinReaderExt, Endian};
 
 use super::{Header, RecordSpace, TCHDBImpl};
 
@@ -37,11 +37,12 @@ impl<R> Clone for MultiRead<R> {
 
 impl<B, R: Clone> TCHDBImpl<B, R> {
     pub fn read_record_spaces_multi(&mut self) -> RecordSpaceMultiIter<R, B> {
-        RecordSpaceMultiIter::new(self.reader.clone(), &self.header)
+        RecordSpaceMultiIter::new(self.reader.clone(), self.endian, &self.header)
     }
 }
 pub struct RecordSpaceMultiIter<R, B> {
     reader: R,
+    endian: Endian,
     file_size: u64,
     alignment_power: u8,
     next_pos: u64,
@@ -49,9 +50,10 @@ pub struct RecordSpaceMultiIter<R, B> {
 }
 
 impl<R, B> RecordSpaceMultiIter<R, B> {
-    fn new(reader: R, header: &Header) -> Self {
+    fn new(reader: R, endian: Endian, header: &Header) -> Self {
         RecordSpaceMultiIter {
             reader,
+            endian,
             file_size: header.file_size,
             alignment_power: header.alignment_power,
             next_pos: header.first_record,
@@ -74,7 +76,10 @@ where
         }
 
         self.reader.seek(SeekFrom::Start(self.next_pos)).unwrap();
-        let item = self.reader.read_ne_args((self.alignment_power,)).unwrap();
+        let item = self
+            .reader
+            .read_type_args(self.endian, (self.alignment_power,))
+            .unwrap();
 
         self.next_pos = self.reader.stream_position().unwrap();
         Some(item)
