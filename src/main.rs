@@ -6,7 +6,7 @@ use std::{
     ops::Shl,
 };
 
-use binrw::BinRead;
+use binrw::{BinRead, Endian};
 use structopt::StructOpt;
 use tchdb::TCHDB;
 
@@ -16,7 +16,15 @@ use crate::tchdb::{
 };
 
 #[derive(StructOpt)]
-enum Command {
+struct Command {
+    #[structopt(long)]
+    bigendian: bool,
+    #[structopt(subcommand)]
+    sub_command: SubCommand,
+}
+
+#[derive(StructOpt)]
+enum SubCommand {
     Test { path: String },
     Get { path: String, key: String },
     GetTrace { path: String, key: String },
@@ -25,20 +33,26 @@ enum Command {
 }
 
 fn main() {
-    match Command::from_args() {
-        Command::Test { path } => run_test(&path),
-        Command::Get { path, key } => run_get(&path, &key),
-        Command::GetTrace { path, key } => run_get_trace(&path, &key),
-        Command::DumpBucket {
+    let command = Command::from_args();
+    let endian = if command.bigendian {
+        Endian::Big
+    } else {
+        Endian::Little
+    };
+    match command.sub_command {
+        SubCommand::Test { path } => run_test(&path, endian),
+        SubCommand::Get { path, key } => run_get(&path, &key, endian),
+        SubCommand::GetTrace { path, key } => run_get_trace(&path, &key, endian),
+        SubCommand::DumpBucket {
             path,
             bucket_number,
-        } => run_dump_bucket(&path, bucket_number),
-        Command::List { path } => run_list(&path),
+        } => run_dump_bucket(&path, bucket_number, endian),
+        SubCommand::List { path } => run_list(&path, endian),
     }
 }
 
-fn run_test(path: &str) {
-    match TCHDB::open_multi(&path) {
+fn run_test(path: &str, endian: Endian) {
+    match TCHDB::open_multi_with_endian(&path, endian) {
         TCHDB::Large(tchdb) => run_test_with_tchdb(tchdb),
         TCHDB::Small(tchdb) => run_test_with_tchdb(tchdb),
     }
@@ -95,8 +109,8 @@ where
     println!("NOT_EXIST => {:?}", value);
 }
 
-fn run_get(path: &str, key: &str) {
-    match TCHDB::open(&path) {
+fn run_get(path: &str, key: &str, endian: Endian) {
+    match TCHDB::open_with_endian(&path, endian) {
         TCHDB::Large(tchdb) => run_get_with_tchdb(tchdb, key),
         TCHDB::Small(tchdb) => run_get_with_tchdb(tchdb, key),
     }
@@ -113,8 +127,8 @@ where
     }
 }
 
-fn run_get_trace(path: &str, key: &str) {
-    match TCHDB::open(&path) {
+fn run_get_trace(path: &str, key: &str, endian: Endian) {
+    match TCHDB::open_with_endian(&path, endian) {
         TCHDB::Large(tchdb) => run_get_trace_with_tchdb(tchdb, key),
         TCHDB::Small(tchdb) => run_get_trace_with_tchdb(tchdb, key),
     }
@@ -144,8 +158,8 @@ where
     }
 }
 
-fn run_dump_bucket(path: &str, bucket_number: u64) {
-    match TCHDB::open(&path) {
+fn run_dump_bucket(path: &str, bucket_number: u64, endian: Endian) {
+    match TCHDB::open_with_endian(&path, endian) {
         TCHDB::Large(tchdb) => run_dump_bucket_with_tchdb(tchdb, bucket_number),
         TCHDB::Small(tchdb) => run_dump_bucket_with_tchdb(tchdb, bucket_number),
     }
@@ -168,8 +182,8 @@ where
     }
 }
 
-fn run_list(path: &str) {
-    match TCHDB::open(&path) {
+fn run_list(path: &str, endian: Endian) {
+    match TCHDB::open_with_endian(&path, endian) {
         TCHDB::Large(tchdb) => run_list_with_tchdb(tchdb),
         TCHDB::Small(tchdb) => run_list_with_tchdb(tchdb),
     }
