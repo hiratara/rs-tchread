@@ -12,7 +12,7 @@ use std::{
     path::Path,
 };
 
-use binrw::{BinRead, BinReaderExt};
+use binrw::{BinRead, BinReaderExt, Error};
 
 use self::{
     binrw_types::{Buckets, FreeBlockPoolElement, Header, Record, RecordOffset, RecordSpace},
@@ -52,6 +52,15 @@ impl<B, R> TCHDBImpl<B, R> {
             idx,
             hash: hash as u8,
         }
+    }
+}
+
+impl<B, R> TCHDBImpl<B, R>
+where
+    R: Seek,
+{
+    pub fn read_record_spaces<'a>(&'a mut self) -> RecordSpaceIter<'a, R, B> {
+        RecordSpaceIter::new(&mut self.reader, &self.header)
     }
 }
 
@@ -270,6 +279,43 @@ where
             TCHDB::Large(TCHDBImpl::new(reader, header))
         } else {
             TCHDB::Small(TCHDBImpl::new(reader, header))
+        }
+    }
+}
+
+pub struct RecordSpaceIter<'a, R, B> {
+    reader: &'a mut R,
+    file_size: u64,
+    alignment_power: u8,
+    bucket_type: PhantomData<fn() -> B>,
+}
+
+impl<'a, R: Seek, B> RecordSpaceIter<'a, R, B> {
+    fn new(reader: &'a mut R, header: &Header) -> Self {
+        reader.seek(SeekFrom::Start(header.first_record)).unwrap();
+
+        RecordSpaceIter {
+            reader,
+            file_size: header.file_size,
+            alignment_power: header.alignment_power,
+            bucket_type: PhantomData,
+        }
+    }
+}
+
+impl<'a, R, B> Iterator for RecordSpaceIter<'a, R, B>
+where
+    R: Read + Seek,
+    B: BinRead,
+    <B as BinRead>::Args<'static>: Default,
+{
+    type Item = RecordSpace<B>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.reader.read_ne_args((self.alignment_power,)) {
+            Ok(record_space) => record_space,
+            Err(Error::EnumErrors { pos, .. }) if pos == self.file_size => None,
+            Err(error) => panic!("{}", error),
         }
     }
 }

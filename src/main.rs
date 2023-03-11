@@ -169,7 +169,7 @@ where
 }
 
 fn run_list(path: &str) {
-    match TCHDB::open_multi(&path) {
+    match TCHDB::open(&path) {
         TCHDB::Large(tchdb) => run_list_with_tchdb(tchdb),
         TCHDB::Small(tchdb) => run_list_with_tchdb(tchdb),
     }
@@ -179,10 +179,10 @@ fn run_list_with_tchdb<B, R>(mut tchdb: TCHDBImpl<B, R>)
 where
     B: 'static + BinRead + Copy + std::fmt::Debug + Eq + Shl<u8, Output = B> + LowerHex + Into<u64>,
     <B as BinRead>::Args<'static>: Default,
-    R: Read + Seek + Clone,
+    R: Read + Seek,
 {
     let mut stdout = io::stdout().lock();
-    for record in tchdb.read_record_spaces_multi() {
+    for record in tchdb.read_record_spaces() {
         if let RecordSpace::Record(record) = record {
             stdout.write_all(&record.key).unwrap();
             stdout.write_all(b"\n").unwrap();
