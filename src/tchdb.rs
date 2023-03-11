@@ -5,14 +5,14 @@ mod vnum;
 use std::{
     cmp::Ordering,
     fs::File,
-    io::{BufReader, Read, Seek, SeekFrom},
+    io::{Read, Seek, SeekFrom},
     marker::PhantomData,
     mem,
     ops::Shl,
     path::Path,
 };
 
-use binrw::{BinRead, BinReaderExt, Error};
+use binrw::{io::BufReader, BinRead, BinReaderExt, Error};
 
 use self::{
     binrw_types::{Buckets, FreeBlockPoolElement, Header, Record, RecordOffset, RecordSpace},
