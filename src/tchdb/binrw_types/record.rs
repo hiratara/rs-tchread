@@ -1,20 +1,39 @@
-use binrw::BinRead;
+use std::io::{Read, Seek};
+
+use binrw::{BinRead, BinResult, Endian};
 
 use crate::tchdb::vnum::VNum;
 
 use super::RecordOffset;
 
-#[derive(BinRead, Debug)]
-#[br(import(alignment_power: u8))]
+#[derive(Debug)]
 pub struct Record<B>
 where
     B: BinRead,
     <B as BinRead>::Args<'static>: Default,
 {
-    #[br(args(alignment_power))]
     pub meta: RecordMeta<B>,
-    #[br(args(meta.value_size.0, meta.padding_size))]
     pub value: RecordValue,
+}
+
+impl<B> BinRead for Record<B>
+where
+    B: BinRead,
+    <B as BinRead>::Args<'static>: Default,
+{
+    type Args<'a> = (u8,);
+
+    fn read_options<R: Read + Seek>(
+        reader: &mut R,
+        endian: Endian,
+        args: Self::Args<'_>,
+    ) -> BinResult<Self> {
+        let meta = <RecordMeta<B>>::read_options(reader, endian, args)?;
+        let value =
+            <RecordValue>::read_options(reader, endian, (meta.value_size.0, meta.padding_size))?;
+
+        Ok(Record { meta, value })
+    }
 }
 
 #[derive(BinRead, Debug)]
