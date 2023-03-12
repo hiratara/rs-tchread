@@ -2,7 +2,7 @@ mod tchdb;
 
 use std::{
     fmt::LowerHex,
-    io::{self, Read, Seek, Write},
+    io::{self, BufWriter, Read, Seek, Write},
     ops::Shl,
 };
 
@@ -122,7 +122,9 @@ where
     <B as BinRead>::Args<'static>: Default,
     R: Read + Seek,
 {
-    let mut stdout = io::stdout().lock();
+    let stdout = io::stdout().lock();
+    let mut stdout = BufWriter::new(stdout);
+
     if let Some(value) = tchdb.get(key) {
         stdout.write_all(&value).unwrap();
         writeln!(stdout, "").unwrap();
@@ -142,7 +144,8 @@ where
     <B as BinRead>::Args<'static>: Default,
     R: Read + Seek,
 {
-    let mut stdout = io::stdout().lock();
+    let stdout = io::stdout().lock();
+    let mut stdout = BufWriter::new(stdout);
 
     let (key_with_hash, found, visited_records) = tchdb.get_detail(key);
     writeln!(stdout, "bucket: {}", key_with_hash.idx).unwrap();
@@ -174,7 +177,8 @@ where
     <B as BinRead>::Args<'static>: Default,
     R: Read + Seek,
 {
-    let mut stdout = io::stdout().lock();
+    let stdout = io::stdout().lock();
+    let mut stdout = BufWriter::new(stdout);
 
     let records = tchdb.dump_bucket(bucket_number);
     for (i, r) in records.into_iter().enumerate() {
@@ -197,7 +201,9 @@ where
     <B as BinRead>::Args<'static>: Default,
     R: Read + Seek,
 {
-    let mut stdout = io::stdout().lock();
+    let stdout = io::stdout().lock();
+    let mut stdout = BufWriter::new(stdout);
+
     for record in tchdb.read_record_spaces() {
         if let RecordSpace::Record(record) = record {
             stdout.write_all(&record.meta.key).unwrap();
