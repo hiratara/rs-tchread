@@ -122,8 +122,10 @@ where
     <B as BinRead>::Args<'static>: Default,
     R: Read + Seek,
 {
+    let mut stdout = io::stdout().lock();
     if let Some(value) = tchdb.get(key) {
-        println!("{}", value);
+        stdout.write_all(&value).unwrap();
+        writeln!(stdout, "").unwrap();
     }
 }
 

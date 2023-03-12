@@ -204,13 +204,13 @@ where
         }
     }
 
-    pub fn get(&mut self, key_str: &str) -> Option<String> {
+    pub fn get(&mut self, key_str: &str) -> Option<Vec<u8>> {
         let key = self.hash(key_str.as_bytes());
         match self.get_record(&key) {
             None => None,
             Some(record) => {
                 let value = record.value.read_value(&mut self.reader);
-                Some(String::from_utf8(value).unwrap())
+                Some(value)
             }
         }
     }
