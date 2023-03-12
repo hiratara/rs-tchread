@@ -140,20 +140,20 @@ where
     <B as BinRead>::Args<'static>: Default,
     R: Read + Seek,
 {
+    let mut stdout = io::stdout().lock();
+
     let (key_with_hash, found, visited_records) = tchdb.get_detail(key);
-    println!("bucket: {}", key_with_hash.idx);
-    println!("hash: {}", key_with_hash.hash);
+    writeln!(stdout, "bucket: {}", key_with_hash.idx).unwrap();
+    writeln!(stdout, "hash: {}", key_with_hash.hash).unwrap();
 
     let len = visited_records.len();
     for (i, r) in visited_records.into_iter().enumerate() {
-        println!(
-            "record {}: hash={}, key={}",
-            i + 1,
-            r.hash_value,
-            String::from_utf8(r.key).unwrap(),
-        );
+        write!(stdout, "record {}: hash={}, key=", i + 1, r.hash_value,).unwrap();
+        stdout.write_all(&r.key).unwrap();
+        writeln!(stdout, "").unwrap();
         if found && i == len - 1 {
-            println!("{}", String::from_utf8(r.value).unwrap());
+            stdout.write_all(&r.value).unwrap();
+            writeln!(stdout, "").unwrap();
         }
     }
 }
@@ -171,14 +171,13 @@ where
     <B as BinRead>::Args<'static>: Default,
     R: Read + Seek,
 {
+    let mut stdout = io::stdout().lock();
+
     let records = tchdb.dump_bucket(bucket_number);
     for (i, r) in records.into_iter().enumerate() {
-        println!(
-            "record {}: hash={}, key={}",
-            i + 1,
-            r.hash_value,
-            String::from_utf8(r.key).unwrap(),
-        );
+        writeln!(stdout, "record {}: hash={}, key=", i + 1, r.hash_value,).unwrap();
+        stdout.write_all(&r.key).unwrap();
+        writeln!(stdout, "").unwrap();
     }
 }
 
