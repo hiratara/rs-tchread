@@ -1,6 +1,10 @@
+pub mod record;
+
 use std::ops::Shl;
 
 use binrw::BinRead;
+
+pub use self::record::Record;
 
 use super::vnum::VNum;
 
@@ -63,29 +67,6 @@ where
 pub struct FreeBlockPoolElement {
     pub offset: VNum<u32>, // TODO: recorded as the difference of the former free block and as the quotient by the alignment
     pub size: VNum<u32>,
-}
-
-#[derive(BinRead, Debug)]
-#[br(import(alignment_power: u8))]
-pub struct Record<B>
-where
-    B: BinRead,
-    <B as BinRead>::Args<'static>: Default,
-{
-    pub hash_value: u8,
-    #[br(args(alignment_power))]
-    pub left_chain: RecordOffset<B>,
-    #[br(args(alignment_power))]
-    pub right_chain: RecordOffset<B>,
-    pub padding_size: u16,
-    pub key_size: VNum<u32>,
-    pub value_size: VNum<u32>,
-    #[br(count = key_size.0)]
-    pub key: Vec<u8>,
-    #[br(count = value_size.0)]
-    pub value: Vec<u8>,
-    #[br(count = padding_size)]
-    pub padding: Vec<u8>,
 }
 
 #[derive(BinRead, Debug)]

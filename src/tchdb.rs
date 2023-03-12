@@ -175,24 +175,24 @@ where
                 RecordSpace::Record(r) => r,
             };
 
-            if key.hash > record.hash_value {
-                rec_off = record.left_chain;
+            if key.hash > record.meta.hash_value {
+                rec_off = record.meta.left_chain;
                 visited_records.push(record);
                 continue;
-            } else if key.hash < record.hash_value {
-                rec_off = record.right_chain;
+            } else if key.hash < record.meta.hash_value {
+                rec_off = record.meta.right_chain;
                 visited_records.push(record);
                 continue;
             }
 
-            match key.key.cmp(&record.key) {
+            match key.key.cmp(&record.meta.key) {
                 Ordering::Greater => {
-                    rec_off = record.left_chain;
+                    rec_off = record.meta.left_chain;
                     visited_records.push(record);
                     continue;
                 }
                 Ordering::Less => {
-                    rec_off = record.right_chain;
+                    rec_off = record.meta.right_chain;
                     visited_records.push(record);
                     continue;
                 }
@@ -208,7 +208,7 @@ where
         let key = self.hash(key_str.as_bytes());
         match self.get_record(&key) {
             None => None,
-            Some(record) => Some(String::from_utf8(record.value).unwrap()),
+            Some(record) => Some(String::from_utf8(record.value.value).unwrap()),
         }
     }
 
@@ -235,8 +235,8 @@ where
         match self.read_record_space(rec_off) {
             RecordSpace::FreeBlock(_) => panic!("unexpected freespace found: {}", rec_off.offset()),
             RecordSpace::Record(record) => {
-                let right = record.right_chain;
-                let left = record.left_chain;
+                let right = record.meta.right_chain;
+                let left = record.meta.left_chain;
                 self.traverse_records(right, records);
                 records.push(record);
                 self.traverse_records(left, records);
