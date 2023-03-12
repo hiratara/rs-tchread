@@ -1,6 +1,6 @@
-use std::io::{Read, Seek};
+use std::io::{Read, Seek, SeekFrom};
 
-use binrw::{BinRead, BinResult, Endian};
+use binrw::{BinRead, BinReaderExt, BinResult, Endian, VecArgs};
 
 use crate::tchdb::vnum::VNum;
 
@@ -29,10 +29,21 @@ where
         args: Self::Args<'_>,
     ) -> BinResult<Self> {
         let meta = <RecordMeta<B>>::read_options(reader, endian, args)?;
-        let value =
-            <RecordValue>::read_options(reader, endian, (meta.value_size.0, meta.padding_size))?;
+        let value_offset = reader.stream_position()?;
+        let value_size = meta.value_size.0;
 
-        Ok(Record { meta, value })
+        // seek for next record
+        reader.seek(SeekFrom::Current(
+            value_size as i64 + meta.padding_size as i64,
+        ))?;
+
+        Ok(Record {
+            meta,
+            value: RecordValue::Offset {
+                offset: value_offset,
+                size: value_size,
+            },
+        })
     }
 }
 
@@ -55,11 +66,25 @@ where
     pub key: Vec<u8>,
 }
 
-#[derive(BinRead, Debug)]
-#[br(import(value_size: u32, padding_size: u16))]
-pub struct RecordValue {
-    #[br(count = value_size)]
-    pub value: Vec<u8>,
-    #[br(count = padding_size)]
-    pub padding: Vec<u8>,
+#[derive(Debug)]
+pub enum RecordValue {
+    Offset { offset: u64, size: u32 },
+    Value(Vec<u8>),
+}
+
+impl RecordValue {
+    pub fn read_value<R: Read + Seek>(&self, reader: &mut R) -> Vec<u8> {
+        match self {
+            RecordValue::Offset { offset, size } => {
+                reader.seek(SeekFrom::Start(*offset)).unwrap();
+                reader
+                    .read_ne_args(VecArgs {
+                        count: *size as usize,
+                        inner: (),
+                    })
+                    .unwrap()
+            }
+            RecordValue::Value(value) => value.clone(),
+        }
+    }
 }

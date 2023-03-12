@@ -208,7 +208,10 @@ where
         let key = self.hash(key_str.as_bytes());
         match self.get_record(&key) {
             None => None,
-            Some(record) => Some(String::from_utf8(record.value.value).unwrap()),
+            Some(record) => {
+                let value = record.value.read_value(&mut self.reader);
+                Some(String::from_utf8(value).unwrap())
+            }
         }
     }
 
