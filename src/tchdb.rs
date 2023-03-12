@@ -12,7 +12,7 @@ use std::{
     path::Path,
 };
 
-use binrw::{io::BufReader, BinRead, BinReaderExt, Endian, Error};
+use binrw::{io::BufReader, BinRead, BinReaderExt, Endian};
 
 use self::{
     binrw_types::{Buckets, FreeBlockPoolElement, Header, Record, RecordOffset, RecordSpace},
@@ -310,18 +310,18 @@ pub struct RecordSpaceIter<'a, R, B> {
     endian: Endian,
     file_size: u64,
     alignment_power: u8,
+    next_pos: u64,
     bucket_type: PhantomData<fn() -> B>,
 }
 
 impl<'a, R: Seek, B> RecordSpaceIter<'a, R, B> {
     fn new(reader: &'a mut R, endian: Endian, header: &Header) -> Self {
-        reader.seek(SeekFrom::Start(header.first_record)).unwrap();
-
         RecordSpaceIter {
             reader,
             endian,
             file_size: header.file_size,
             alignment_power: header.alignment_power,
+            next_pos: header.first_record,
             bucket_type: PhantomData,
         }
     }
@@ -336,13 +336,24 @@ where
     type Item = RecordSpace<B>;
 
     fn next(&mut self) -> Option<Self::Item> {
+        if self.next_pos >= self.file_size {
+            return None;
+        }
+
+        self.reader.seek(SeekFrom::Start(self.next_pos)).unwrap();
         match self
             .reader
             .read_type_args(self.endian, (self.alignment_power,))
+            .unwrap()
         {
-            Ok(record_space) => record_space,
-            Err(Error::EnumErrors { pos, .. }) if pos == self.file_size => None,
-            Err(error) => panic!("{}", error),
+            RecordSpace::FreeBlock(free_block) => {
+                self.next_pos = self.reader.stream_position().unwrap();
+                Some(RecordSpace::FreeBlock(free_block))
+            }
+            RecordSpace::Record(record) => {
+                self.next_pos = record.next_record;
+                Some(RecordSpace::Record(record))
+            }
         }
     }
 }

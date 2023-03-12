@@ -76,12 +76,19 @@ where
         }
 
         self.reader.seek(SeekFrom::Start(self.next_pos)).unwrap();
-        let item = self
+        match self
             .reader
             .read_type_args(self.endian, (self.alignment_power,))
-            .unwrap();
-
-        self.next_pos = self.reader.stream_position().unwrap();
-        Some(item)
+            .unwrap()
+        {
+            RecordSpace::FreeBlock(free_block) => {
+                self.next_pos = self.reader.stream_position().unwrap();
+                Some(RecordSpace::FreeBlock(free_block))
+            }
+            RecordSpace::Record(record) => {
+                self.next_pos = record.next_record;
+                Some(RecordSpace::Record(record))
+            }
+        }
     }
 }

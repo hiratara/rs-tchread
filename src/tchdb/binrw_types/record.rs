@@ -14,6 +14,7 @@ where
 {
     pub meta: RecordMeta<B>,
     pub value: RecordValue,
+    pub next_record: u64,
 }
 
 impl<B> BinRead for Record<B>
@@ -31,11 +32,7 @@ where
         let meta = <RecordMeta<B>>::read_options(reader, endian, args)?;
         let value_offset = reader.stream_position()?;
         let value_size = meta.value_size.0;
-
-        // seek for next record
-        reader.seek(SeekFrom::Current(
-            value_size as i64 + meta.padding_size as i64,
-        ))?;
+        let next_record = value_offset + value_size as u64 + meta.padding_size as u64;
 
         Ok(Record {
             meta,
@@ -43,6 +40,7 @@ where
                 offset: value_offset,
                 size: value_size,
             },
+            next_record,
         })
     }
 }
