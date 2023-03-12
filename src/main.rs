@@ -178,7 +178,7 @@ where
 
     let records = tchdb.dump_bucket(bucket_number);
     for (i, r) in records.into_iter().enumerate() {
-        writeln!(stdout, "record {}: hash={}, key=", i + 1, r.meta.hash_value,).unwrap();
+        write!(stdout, "record {}: hash={}, key=", i + 1, r.meta.hash_value,).unwrap();
         stdout.write_all(&r.meta.key).unwrap();
         writeln!(stdout, "").unwrap();
     }
