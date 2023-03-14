@@ -1,4 +1,5 @@
-pub mod record;
+mod record;
+mod vnum;
 
 use std::ops::Shl;
 
@@ -6,7 +7,7 @@ use binrw::BinRead;
 
 pub use self::record::Record;
 
-use super::vnum::VNum;
+use vnum::VNum;
 
 #[derive(BinRead, Debug)]
 pub struct Header {

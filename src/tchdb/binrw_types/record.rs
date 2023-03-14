@@ -2,7 +2,7 @@ use std::io::{Read, Seek, SeekFrom};
 
 use binrw::{BinRead, BinReaderExt, BinResult, Endian, VecArgs};
 
-use crate::tchdb::vnum::VNum;
+use super::vnum::VNum;
 
 use super::RecordOffset;
 

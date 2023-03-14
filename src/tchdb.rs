@@ -1,6 +1,5 @@
 pub mod binrw_types;
 mod multi_read;
-mod vnum;
 
 use std::{
     cmp::Ordering,
