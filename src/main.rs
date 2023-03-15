@@ -1,5 +1,3 @@
-mod tchdb;
-
 use std::{
     fmt::LowerHex,
     io::{self, BufWriter, Read, Seek, Write},
@@ -8,11 +6,10 @@ use std::{
 
 use binrw::{BinRead, Endian};
 use structopt::StructOpt;
-use tchdb::TCHDB;
 
-use crate::tchdb::{
+use tchread::{
     binrw_types::{Buckets, RecordSpace},
-    TCHDBImpl,
+    TCHDBImpl, TCHDB,
 };
 
 #[derive(StructOpt)]
