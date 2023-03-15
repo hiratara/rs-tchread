@@ -210,7 +210,7 @@ where
             Some(mut record) => {
                 record.value.read_value(&mut self.reader);
                 let value = record.value.into_value();
-                Some(value)
+                Some(value.into_value())
             }
         }
     }

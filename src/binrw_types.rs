@@ -1,3 +1,4 @@
+mod lazy_load;
 mod record;
 mod vnum;
 

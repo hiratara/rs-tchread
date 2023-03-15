@@ -167,7 +167,7 @@ where
         writeln!(stdout, "").unwrap();
         if found && i == len - 1 {
             r.value.read_value(&mut tchdb.reader);
-            let value = r.value.into_value();
+            let value = r.value.into_value().into_value();
             stdout.write_all(&value).unwrap();
             writeln!(stdout, "").unwrap();
         }
@@ -219,7 +219,9 @@ where
             stdout.write_all(&record.meta.key).unwrap();
             if pv {
                 stdout.write_all(b"\t").unwrap();
-                stdout.write_all(&record.value.into_value()).unwrap();
+                stdout
+                    .write_all(&record.value.into_value().into_value())
+                    .unwrap();
             }
             stdout.write_all(b"\n").unwrap();
         }

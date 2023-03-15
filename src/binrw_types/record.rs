@@ -1,48 +1,23 @@
-use std::io::{Read, Seek, SeekFrom};
+use binrw::BinRead;
 
-use binrw::{BinRead, BinReaderExt, BinResult, Endian, VecArgs};
-
+use super::lazy_load::Lazy;
 use super::vnum::VNum;
 
 use super::RecordOffset;
 
-#[derive(Debug)]
+#[derive(BinRead, Debug)]
+#[br(import(alignment_power: u8), stream = r)]
 pub struct Record<B>
 where
     B: BinRead,
     <B as BinRead>::Args<'static>: Default,
 {
+    #[br(args(alignment_power))]
     pub meta: RecordMeta<B>,
-    pub value: RecordValue,
+    #[br(calc = r.stream_position().unwrap() + meta.value_size.0 as u64 + meta.padding_size as u64)]
     pub next_record: u64,
-}
-
-impl<B> BinRead for Record<B>
-where
-    B: BinRead,
-    <B as BinRead>::Args<'static>: Default,
-{
-    type Args<'a> = (u8,);
-
-    fn read_options<R: Read + Seek>(
-        reader: &mut R,
-        endian: Endian,
-        args: Self::Args<'_>,
-    ) -> BinResult<Self> {
-        let meta = <RecordMeta<B>>::read_options(reader, endian, args)?;
-        let value_offset = reader.stream_position()?;
-        let value_size = meta.value_size.0;
-        let next_record = value_offset + value_size as u64 + meta.padding_size as u64;
-
-        Ok(Record {
-            meta,
-            value: RecordValue::Offset {
-                offset: value_offset,
-                size: value_size,
-            },
-            next_record,
-        })
-    }
+    #[br(args {lazy: true, inner: (meta.value_size.0,)})]
+    pub value: Lazy<RecordValue, (u32,)>,
 }
 
 #[derive(BinRead, Debug)]
@@ -64,30 +39,12 @@ where
     pub key: Vec<u8>,
 }
 
-#[derive(Debug)]
-pub enum RecordValue {
-    Offset { offset: u64, size: u32 },
-    Value(Vec<u8>),
-}
+#[derive(BinRead, Debug)]
+#[br(import(count: u32))]
+pub struct RecordValue(#[br(count = count)] Vec<u8>);
 
 impl RecordValue {
-    pub fn read_value<R: Read + Seek>(&mut self, reader: &mut R) {
-        if let RecordValue::Offset { offset, size } = self {
-            reader.seek(SeekFrom::Start(*offset)).unwrap();
-            let value = reader
-                .read_ne_args(VecArgs {
-                    count: *size as usize,
-                    inner: (),
-                })
-                .unwrap();
-            *self = RecordValue::Value(value);
-        }
-    }
-
     pub fn into_value(self) -> Vec<u8> {
-        match self {
-            RecordValue::Value(value) => value,
-            RecordValue::Offset { .. } => panic!("must to call read_record_value first"),
-        }
+        self.0
     }
 }
