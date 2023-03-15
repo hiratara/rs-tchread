@@ -13,8 +13,10 @@ use tchread::{
 };
 
 #[derive(StructOpt)]
+/// A tool to read TokyoCabinet hash database files
 struct Command {
     #[structopt(long)]
+    /// Read a bigendian file (which violates the specification)
     bigendian: bool,
     #[structopt(subcommand)]
     sub_command: SubCommand,
@@ -22,24 +24,19 @@ struct Command {
 
 #[derive(StructOpt)]
 enum SubCommand {
-    Test {
-        path: String,
-    },
-    Get {
-        path: String,
-        key: String,
-    },
-    GetTrace {
-        path: String,
-        key: String,
-    },
-    DumpBucket {
-        path: String,
-        bucket_number: u64,
-    },
+    #[structopt(setting(structopt::clap::AppSettings::Hidden))]
+    Test { path: String },
+    /// Print the value of a record
+    Get { path: String, key: String },
+    /// Print all records traced to find the key
+    TraceToGet { path: String, key: String },
+    /// Print all records in the bucket
+    DumpBucket { path: String, bucket_number: u64 },
+    /// Print keys of all records, separated by line feeds
     List {
         path: String,
         #[structopt(long)]
+        /// Print values of records also
         pv: bool,
     },
 }
@@ -54,7 +51,7 @@ fn main() {
     match command.sub_command {
         SubCommand::Test { path } => run_test(&path, endian),
         SubCommand::Get { path, key } => run_get(&path, &key, endian),
-        SubCommand::GetTrace { path, key } => run_get_trace(&path, &key, endian),
+        SubCommand::TraceToGet { path, key } => run_trace_to_get(&path, &key, endian),
         SubCommand::DumpBucket {
             path,
             bucket_number,
@@ -143,14 +140,14 @@ where
     }
 }
 
-fn run_get_trace(path: &str, key: &str, endian: Endian) {
+fn run_trace_to_get(path: &str, key: &str, endian: Endian) {
     match TCHDB::open_with_endian(&path, endian) {
-        TCHDB::Large(tchdb) => run_get_trace_with_tchdb(tchdb, key),
-        TCHDB::Small(tchdb) => run_get_trace_with_tchdb(tchdb, key),
+        TCHDB::Large(tchdb) => run_trace_to_get_with_tchdb(tchdb, key),
+        TCHDB::Small(tchdb) => run_trace_to_get_with_tchdb(tchdb, key),
     }
 }
 
-fn run_get_trace_with_tchdb<B, R>(mut tchdb: TCHDBImpl<B, R>, key: &str)
+fn run_trace_to_get_with_tchdb<B, R>(mut tchdb: TCHDBImpl<B, R>, key: &str)
 where
     B: 'static + BinRead + Copy + std::fmt::Debug + Eq + Shl<u8, Output = B> + LowerHex + Into<u64>,
     <B as BinRead>::Args<'static>: Default,
