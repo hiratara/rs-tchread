@@ -25,11 +25,26 @@ struct Command {
 
 #[derive(StructOpt)]
 enum SubCommand {
-    Test { path: String },
-    Get { path: String, key: String },
-    GetTrace { path: String, key: String },
-    DumpBucket { path: String, bucket_number: u64 },
-    List { path: String },
+    Test {
+        path: String,
+    },
+    Get {
+        path: String,
+        key: String,
+    },
+    GetTrace {
+        path: String,
+        key: String,
+    },
+    DumpBucket {
+        path: String,
+        bucket_number: u64,
+    },
+    List {
+        path: String,
+        #[structopt(long)]
+        pv: bool,
+    },
 }
 
 fn main() {
@@ -47,7 +62,7 @@ fn main() {
             path,
             bucket_number,
         } => run_dump_bucket(&path, bucket_number, endian),
-        SubCommand::List { path } => run_list(&path, endian),
+        SubCommand::List { path, pv } => run_list(&path, pv, endian),
     }
 }
 
@@ -152,12 +167,13 @@ where
     writeln!(stdout, "hash: {}", key_with_hash.hash).unwrap();
 
     let len = visited_records.len();
-    for (i, r) in visited_records.into_iter().enumerate() {
+    for (i, mut r) in visited_records.into_iter().enumerate() {
         write!(stdout, "record {}: hash={}, key=", i + 1, r.meta.hash_value,).unwrap();
         stdout.write_all(&r.meta.key).unwrap();
         writeln!(stdout, "").unwrap();
         if found && i == len - 1 {
-            let value = r.value.read_value(&mut tchdb.reader);
+            r.value.read_value(&mut tchdb.reader);
+            let value = r.value.into_value();
             stdout.write_all(&value).unwrap();
             writeln!(stdout, "").unwrap();
         }
@@ -188,14 +204,14 @@ where
     }
 }
 
-fn run_list(path: &str, endian: Endian) {
+fn run_list(path: &str, pv: bool, endian: Endian) {
     match TCHDB::open_with_endian(&path, endian) {
-        TCHDB::Large(tchdb) => run_list_with_tchdb(tchdb),
-        TCHDB::Small(tchdb) => run_list_with_tchdb(tchdb),
+        TCHDB::Large(tchdb) => run_list_with_tchdb(tchdb, pv),
+        TCHDB::Small(tchdb) => run_list_with_tchdb(tchdb, pv),
     }
 }
 
-fn run_list_with_tchdb<B, R>(mut tchdb: TCHDBImpl<B, R>)
+fn run_list_with_tchdb<B, R>(mut tchdb: TCHDBImpl<B, R>, pv: bool)
 where
     B: 'static + BinRead + Copy + std::fmt::Debug + Eq + Shl<u8, Output = B> + LowerHex + Into<u64>,
     <B as BinRead>::Args<'static>: Default,
@@ -204,9 +220,13 @@ where
     let stdout = io::stdout().lock();
     let mut stdout = BufWriter::new(stdout);
 
-    for record in tchdb.read_record_spaces() {
+    for record in tchdb.read_record_spaces(pv) {
         if let RecordSpace::Record(record) = record {
             stdout.write_all(&record.meta.key).unwrap();
+            if pv {
+                stdout.write_all(b"\t").unwrap();
+                stdout.write_all(&record.value.into_value()).unwrap();
+            }
             stdout.write_all(b"\n").unwrap();
         }
     }

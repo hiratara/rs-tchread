@@ -71,18 +71,23 @@ pub enum RecordValue {
 }
 
 impl RecordValue {
-    pub fn read_value<R: Read + Seek>(&self, reader: &mut R) -> Vec<u8> {
+    pub fn read_value<R: Read + Seek>(&mut self, reader: &mut R) {
+        if let RecordValue::Offset { offset, size } = self {
+            reader.seek(SeekFrom::Start(*offset)).unwrap();
+            let value = reader
+                .read_ne_args(VecArgs {
+                    count: *size as usize,
+                    inner: (),
+                })
+                .unwrap();
+            *self = RecordValue::Value(value);
+        }
+    }
+
+    pub fn into_value(self) -> Vec<u8> {
         match self {
-            RecordValue::Offset { offset, size } => {
-                reader.seek(SeekFrom::Start(*offset)).unwrap();
-                reader
-                    .read_ne_args(VecArgs {
-                        count: *size as usize,
-                        inner: (),
-                    })
-                    .unwrap()
-            }
-            RecordValue::Value(value) => value.clone(),
+            RecordValue::Value(value) => value,
+            RecordValue::Offset { .. } => panic!("must to call read_record_value first"),
         }
     }
 }

@@ -59,8 +59,8 @@ impl<B, R> TCHDBImpl<B, R>
 where
     R: Seek,
 {
-    pub fn read_record_spaces<'a>(&'a mut self) -> RecordSpaceIter<'a, R, B> {
-        RecordSpaceIter::new(&mut self.reader, self.endian, &self.header)
+    pub fn read_record_spaces<'a>(&'a mut self, pv: bool) -> RecordSpaceIter<'a, R, B> {
+        RecordSpaceIter::new(&mut self.reader, pv, self.endian, &self.header)
     }
 }
 
@@ -207,8 +207,9 @@ where
         let key = self.hash(key_str.as_bytes());
         match self.get_record(&key) {
             None => None,
-            Some(record) => {
-                let value = record.value.read_value(&mut self.reader);
+            Some(mut record) => {
+                record.value.read_value(&mut self.reader);
+                let value = record.value.into_value();
                 Some(value)
             }
         }
@@ -306,6 +307,7 @@ where
 
 pub struct RecordSpaceIter<'a, R, B> {
     reader: &'a mut R,
+    pv: bool,
     endian: Endian,
     file_size: u64,
     alignment_power: u8,
@@ -314,9 +316,10 @@ pub struct RecordSpaceIter<'a, R, B> {
 }
 
 impl<'a, R: Seek, B> RecordSpaceIter<'a, R, B> {
-    fn new(reader: &'a mut R, endian: Endian, header: &Header) -> Self {
+    fn new(reader: &'a mut R, pv: bool, endian: Endian, header: &Header) -> Self {
         RecordSpaceIter {
             reader,
+            pv,
             endian,
             file_size: header.file_size,
             alignment_power: header.alignment_power,
@@ -349,7 +352,10 @@ where
                 self.next_pos = self.reader.stream_position().unwrap();
                 Some(RecordSpace::FreeBlock(free_block))
             }
-            RecordSpace::Record(record) => {
+            RecordSpace::Record(mut record) => {
+                if self.pv {
+                    record.value.read_value(self.reader);
+                }
                 self.next_pos = record.next_record;
                 Some(RecordSpace::Record(record))
             }
