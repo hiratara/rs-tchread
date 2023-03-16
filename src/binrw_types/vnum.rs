@@ -6,7 +6,10 @@ use std::{
 use binrw::{BinRead, BinResult, Endian};
 
 #[derive(Debug)]
-pub struct VNum<T>(pub T);
+pub struct VNum<T> {
+    pub value: T,
+    pub size: u32,
+}
 
 impl<T> BinRead for VNum<T>
 where
@@ -19,19 +22,24 @@ where
         endian: Endian,
         args: Self::Args<'_>,
     ) -> BinResult<Self> {
-        let mut num = T::from(0);
+        let mut value = T::from(0);
         let mut base = T::from(1);
+        let mut length = 0;
 
         loop {
+            length += 1;
             let x = T::from(<u8>::read_options(reader, endian, args)?);
             if x < T::from(0x80) {
-                num += x * base;
+                value += x * base;
                 break;
             }
-            num += base * (T::from(0xFF) - x);
+            value += base * (T::from(0xFF) - x);
             base <<= 7;
         }
 
-        Ok(VNum(num))
+        Ok(VNum {
+            value,
+            size: length,
+        })
     }
 }

@@ -78,7 +78,7 @@ where
         self.reader.seek(SeekFrom::Start(self.next_pos)).unwrap();
         match self
             .reader
-            .read_type_args(self.endian, (self.alignment_power,))
+            .read_type_args(self.endian, (self.next_pos, self.alignment_power))
             .unwrap()
         {
             RecordSpace::FreeBlock(free_block) => {

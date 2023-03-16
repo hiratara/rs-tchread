@@ -94,7 +94,7 @@ where
         let mut pool = Vec::with_capacity(pool_size);
         loop {
             let elem: FreeBlockPoolElement = self.reader.read_type(self.endian).unwrap();
-            if elem.offset.0 == 0 && elem.size.0 == 0 {
+            if elem.offset.value == 0 && elem.size.value == 0 {
                 break;
             }
             pool.push(elem);
@@ -145,9 +145,10 @@ where
     R: Read + Seek,
 {
     fn read_record_space(&mut self, rec_off: RecordOffset<B>) -> RecordSpace<B> {
-        self.reader.seek(SeekFrom::Start(rec_off.offset())).unwrap();
+        let offset = rec_off.offset();
+        self.reader.seek(SeekFrom::Start(offset)).unwrap();
         self.reader
-            .read_type_args(self.endian, (self.header.alignment_power,))
+            .read_type_args(self.endian, (offset, self.header.alignment_power))
             .unwrap()
     }
 
@@ -345,7 +346,7 @@ where
         self.reader.seek(SeekFrom::Start(self.next_pos)).unwrap();
         match self
             .reader
-            .read_type_args(self.endian, (self.alignment_power,))
+            .read_type_args(self.endian, (self.next_pos, self.alignment_power))
             .unwrap()
         {
             RecordSpace::FreeBlock(free_block) => {
