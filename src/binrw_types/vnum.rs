@@ -12,6 +12,7 @@ impl<T> VNum<T>
 where
     T: ShrAssign<i32> + Eq + From<u32> + Copy,
 {
+    #[inline]
     pub fn size(&self) -> u32 {
         let mut value = self.0;
         let mut size = 1;

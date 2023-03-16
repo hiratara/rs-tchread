@@ -47,10 +47,12 @@ where
     B: BinRead + Copy + Shl<u8, Output = B> + Into<u64>,
     <B as BinRead>::Args<'static>: Default,
 {
+    #[inline]
     pub fn offset(&self) -> u64 {
         self.value.into() << self.alignment_power
     }
 
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.value.into() <= 0
     }

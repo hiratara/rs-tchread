@@ -25,6 +25,7 @@ where
 {
     type Args<'a> = LazyArgs<T::Args<'a>>;
 
+    #[inline]
     fn read_options<R: Read + Seek>(
         reader: &mut R,
         endian: Endian,

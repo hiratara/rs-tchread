@@ -35,6 +35,7 @@ where
     B: BinRead,
     <B as BinRead>::Args<'static>: Default,
 {
+    #[inline]
     pub fn next_record(&self) -> u64 {
         self.offset
             + 1
@@ -53,6 +54,7 @@ where
 pub struct RecordValue(#[br(count = count)] Vec<u8>);
 
 impl RecordValue {
+    #[inline]
     pub fn into_value(self) -> Vec<u8> {
         self.0
     }
