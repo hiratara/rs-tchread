@@ -28,17 +28,24 @@ where
     pub key: Vec<u8>,
     #[br(args {lazy: true, inner: (value_size.value,)})]
     pub value: Lazy<RecordValue, (u32,)>,
-    #[br(calc = offset
-        + 1
-        + mem::size_of::<B>() as u64 * 2
-        + 2
-        + key_size.size as u64
-        + value_size.size as u64
-        + key_size.value as u64
-        + value_size.value as u64
-        + padding_size as u64
-    )]
-    pub next_record: u64,
+}
+
+impl<B> Record<B>
+where
+    B: BinRead,
+    <B as BinRead>::Args<'static>: Default,
+{
+    pub fn next_record(&self) -> u64 {
+        self.offset
+            + 1
+            + mem::size_of::<B>() as u64 * 2
+            + 2
+            + self.key_size.size as u64
+            + self.value_size.size as u64
+            + self.key_size.value as u64
+            + self.value_size.value as u64
+            + self.padding_size as u64
+    }
 }
 
 #[derive(BinRead, Debug)]

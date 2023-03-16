@@ -86,7 +86,7 @@ where
                 Some(RecordSpace::FreeBlock(free_block))
             }
             RecordSpace::Record(record) => {
-                self.next_pos = record.next_record;
+                self.next_pos = record.next_record();
                 Some(RecordSpace::Record(record))
             }
         }

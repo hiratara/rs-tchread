@@ -357,7 +357,7 @@ where
                 if self.pv {
                     record.value.read_value(self.reader);
                 }
-                self.next_pos = record.next_record;
+                self.next_pos = record.next_record();
                 Some(RecordSpace::Record(record))
             }
         }
