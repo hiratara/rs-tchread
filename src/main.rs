@@ -101,7 +101,7 @@ where
     for record in tchdb.read_record_spaces_multi() {
         println!("{:?}", &record);
         if let RecordSpace::Record(record) = record {
-            let key = tchdb.hash(&record.meta.key);
+            let key = tchdb.hash(&record.key);
             println!("calculated hash: {:?}", key);
             println!("got record: {:?}", tchdb.get_record(&key));
         }
@@ -162,8 +162,8 @@ where
 
     let len = visited_records.len();
     for (i, mut r) in visited_records.into_iter().enumerate() {
-        write!(stdout, "record {}: hash={}, key=", i + 1, r.meta.hash_value,).unwrap();
-        stdout.write_all(&r.meta.key).unwrap();
+        write!(stdout, "record {}: hash={}, key=", i + 1, r.hash_value,).unwrap();
+        stdout.write_all(&r.key).unwrap();
         writeln!(stdout, "").unwrap();
         if found && i == len - 1 {
             r.value.read_value(&mut tchdb.reader);
@@ -192,8 +192,8 @@ where
 
     let records = tchdb.dump_bucket(bucket_number);
     for (i, r) in records.into_iter().enumerate() {
-        write!(stdout, "record {}: hash={}, key=", i + 1, r.meta.hash_value,).unwrap();
-        stdout.write_all(&r.meta.key).unwrap();
+        write!(stdout, "record {}: hash={}, key=", i + 1, r.hash_value,).unwrap();
+        stdout.write_all(&r.key).unwrap();
         writeln!(stdout, "").unwrap();
     }
 }
@@ -216,7 +216,7 @@ where
 
     for record in tchdb.read_record_spaces(pv) {
         if let RecordSpace::Record(record) = record {
-            stdout.write_all(&record.meta.key).unwrap();
+            stdout.write_all(&record.key).unwrap();
             if pv {
                 stdout.write_all(b"\t").unwrap();
                 stdout
