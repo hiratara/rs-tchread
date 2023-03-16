@@ -144,11 +144,14 @@ where
     <B as BinRead>::Args<'static>: Default,
     R: Read + Seek,
 {
-    fn read_record_space(&mut self, rec_off: RecordOffset<B>) -> RecordSpace<B> {
+    fn read_record_space(&mut self, rec_off: RecordOffset<B>, read_value: bool) -> RecordSpace<B> {
         let offset = rec_off.offset();
         self.reader.seek(SeekFrom::Start(offset)).unwrap();
         self.reader
-            .read_type_args(self.endian, (offset, self.header.alignment_power))
+            .read_type_args(
+                self.endian,
+                (offset, self.header.alignment_power, read_value),
+            )
             .unwrap()
     }
 
@@ -170,7 +173,7 @@ where
                 return (false, visited_records);
             }
 
-            let record = match self.read_record_space(rec_off) {
+            let record = match self.read_record_space(rec_off, false) {
                 RecordSpace::FreeBlock(_) => return (false, visited_records),
                 RecordSpace::Record(r) => r,
             };
@@ -236,7 +239,7 @@ where
             return;
         }
 
-        match self.read_record_space(rec_off) {
+        match self.read_record_space(rec_off, false) {
             RecordSpace::FreeBlock(_) => panic!("unexpected freespace found: {}", rec_off.offset()),
             RecordSpace::Record(record) => {
                 let right = record.right_chain;
@@ -346,17 +349,14 @@ where
         self.reader.seek(SeekFrom::Start(self.next_pos)).unwrap();
         match self
             .reader
-            .read_type_args(self.endian, (self.next_pos, self.alignment_power))
+            .read_type_args(self.endian, (self.next_pos, self.alignment_power, self.pv))
             .unwrap()
         {
             RecordSpace::FreeBlock(free_block) => {
                 self.next_pos = self.reader.stream_position().unwrap();
                 Some(RecordSpace::FreeBlock(free_block))
             }
-            RecordSpace::Record(mut record) => {
-                if self.pv {
-                    record.value.read_value(self.reader);
-                }
+            RecordSpace::Record(record) => {
                 self.next_pos = record.next_record();
                 Some(RecordSpace::Record(record))
             }

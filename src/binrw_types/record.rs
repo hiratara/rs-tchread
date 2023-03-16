@@ -8,7 +8,7 @@ use super::vnum::VNum;
 use super::RecordOffset;
 
 #[derive(BinRead, Debug)]
-#[br(import(offset: u64, alignment_power: u8))]
+#[br(import(offset: u64, alignment_power: u8, read_value: bool))]
 pub struct Record<B>
 where
     B: BinRead,
@@ -26,7 +26,7 @@ where
     pub value_size: VNum<u32>,
     #[br(count = key_size.0)]
     pub key: Vec<u8>,
-    #[br(args {lazy: true, inner: (value_size.0,)})]
+    #[br(args {lazy: !read_value, inner: (value_size.0,)})]
     pub value: Lazy<RecordValue, (u32,)>,
 }
 

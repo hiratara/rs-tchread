@@ -79,7 +79,7 @@ pub struct FreeBlock {
 }
 
 #[derive(BinRead, Debug)]
-#[br(import(offset: u64, alignment_power: u8))]
+#[br(import(offset: u64, alignment_power: u8, read_value: bool))]
 pub enum RecordSpace<B>
 where
     B: BinRead,
@@ -87,7 +87,7 @@ where
 {
     #[br(magic = 0xc8u8)]
     // add the length of magic to the offset
-    Record(#[br(args(offset + 1, alignment_power))] Record<B>),
+    Record(#[br(args(offset + 1, alignment_power, read_value))] Record<B>),
     #[br(magic = 0xb0u8)]
     FreeBlock(FreeBlock),
 }
