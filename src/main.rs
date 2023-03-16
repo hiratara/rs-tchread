@@ -84,9 +84,13 @@ where
         .0
         .into_iter()
         .enumerate()
-        .filter(|(_, n)| n.offset() != 0)
+        .filter(|(_, n)| n.offset(tchdb.header.alignment_power) != 0)
     {
-        println!("bucket {} pos: {:#01x}", i, pos.offset());
+        println!(
+            "bucket {} pos: {:#01x}",
+            i,
+            pos.offset(tchdb.header.alignment_power)
+        );
     }
 
     println!(

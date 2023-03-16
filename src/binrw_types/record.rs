@@ -8,7 +8,7 @@ use super::vnum::VNum;
 use super::RecordOffset;
 
 #[derive(BinRead, Debug)]
-#[br(import(offset: u64, alignment_power: u8, read_value: bool))]
+#[br(import(offset: u64, read_value: bool))]
 pub struct Record<B>
 where
     B: BinRead,
@@ -17,9 +17,7 @@ where
     #[br(calc = offset)]
     pub offset: u64,
     pub hash_value: u8,
-    #[br(args(alignment_power))]
     pub left_chain: RecordOffset<B>,
-    #[br(args(alignment_power))]
     pub right_chain: RecordOffset<B>,
     pub padding_size: u16,
     pub key_size: VNum<u32>,

@@ -31,15 +31,13 @@ pub struct Header {
 }
 
 #[derive(BinRead, Clone, Copy, Debug)]
-#[br(import(alignment_power: u8))]
+
 pub struct RecordOffset<B>
 where
     B: BinRead,
     <B as BinRead>::Args<'static>: Default,
 {
     value: B,
-    #[br(calc = alignment_power)]
-    alignment_power: u8,
 }
 
 impl<B> RecordOffset<B>
@@ -48,8 +46,8 @@ where
     <B as BinRead>::Args<'static>: Default,
 {
     #[inline]
-    pub fn offset(&self) -> u64 {
-        self.value.into() << self.alignment_power
+    pub fn offset(&self, alignment_power: u8) -> u64 {
+        self.value.into() << alignment_power
     }
 
     #[inline]
@@ -59,10 +57,8 @@ where
 }
 
 #[derive(BinRead, Debug)]
-#[br(import(alignment_power: u8, bucket_number: u64))]
-pub struct Buckets<B>(
-    #[br(count = bucket_number, args{inner: (alignment_power, )})] pub Vec<RecordOffset<B>>,
-)
+#[br(import(bucket_number: u64))]
+pub struct Buckets<B>(#[br(count = bucket_number)] pub Vec<RecordOffset<B>>)
 where
     B: 'static + BinRead,
     <B as BinRead>::Args<'static>: Default;
@@ -81,7 +77,7 @@ pub struct FreeBlock {
 }
 
 #[derive(BinRead, Debug)]
-#[br(import(offset: u64, alignment_power: u8, read_value: bool))]
+#[br(import(offset: u64, read_value: bool))]
 pub enum RecordSpace<B>
 where
     B: BinRead,
@@ -89,7 +85,7 @@ where
 {
     #[br(magic = 0xc8u8)]
     // add the length of magic to the offset
-    Record(#[br(args(offset + 1, alignment_power, read_value))] Record<B>),
+    Record(#[br(args(offset + 1, read_value))] Record<B>),
     #[br(magic = 0xb0u8)]
     FreeBlock(FreeBlock),
 }

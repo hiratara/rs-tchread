@@ -44,7 +44,6 @@ pub struct RecordSpaceMultiIter<R, B> {
     reader: R,
     endian: Endian,
     file_size: u64,
-    alignment_power: u8,
     next_pos: u64,
     _bucket_type: PhantomData<B>,
 }
@@ -55,7 +54,6 @@ impl<R, B> RecordSpaceMultiIter<R, B> {
             reader,
             endian,
             file_size: header.file_size,
-            alignment_power: header.alignment_power,
             next_pos: header.first_record,
             _bucket_type: PhantomData,
         }
@@ -78,7 +76,7 @@ where
         self.reader.seek(SeekFrom::Start(self.next_pos)).unwrap();
         match self
             .reader
-            .read_type_args(self.endian, (self.next_pos, self.alignment_power, false))
+            .read_type_args(self.endian, (self.next_pos, false))
             .unwrap()
         {
             RecordSpace::FreeBlock(free_block) => {

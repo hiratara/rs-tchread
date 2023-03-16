@@ -115,10 +115,7 @@ where
             .unwrap();
         let buckets = self
             .reader
-            .read_type_args(
-                self.endian,
-                (self.header.alignment_power, self.header.bucket_number),
-            )
+            .read_type_args(self.endian, (self.header.bucket_number,))
             .unwrap();
 
         debug_assert_eq!(
@@ -132,9 +129,7 @@ where
     fn read_bucket(&mut self, idx: u64) -> RecordOffset<B> {
         let pos = self.bucket_offset + mem::size_of::<B>() as u64 * idx;
         self.reader.seek(SeekFrom::Start(pos)).unwrap();
-        self.reader
-            .read_type_args(self.endian, (self.header.alignment_power,))
-            .unwrap()
+        self.reader.read_type(self.endian).unwrap()
     }
 }
 
@@ -145,13 +140,10 @@ where
     R: Read + Seek,
 {
     fn read_record_space(&mut self, rec_off: RecordOffset<B>, read_value: bool) -> RecordSpace<B> {
-        let offset = rec_off.offset();
+        let offset = rec_off.offset(self.header.alignment_power);
         self.reader.seek(SeekFrom::Start(offset)).unwrap();
         self.reader
-            .read_type_args(
-                self.endian,
-                (offset, self.header.alignment_power, read_value),
-            )
+            .read_type_args(self.endian, (offset, read_value))
             .unwrap()
     }
 
@@ -240,7 +232,10 @@ where
         }
 
         match self.read_record_space(rec_off, false) {
-            RecordSpace::FreeBlock(_) => panic!("unexpected freespace found: {}", rec_off.offset()),
+            RecordSpace::FreeBlock(_) => panic!(
+                "unexpected freespace found: {}",
+                rec_off.offset(self.header.alignment_power)
+            ),
             RecordSpace::Record(record) => {
                 let right = record.right_chain;
                 let left = record.left_chain;
@@ -314,7 +309,6 @@ pub struct RecordSpaceIter<'a, R, B> {
     pv: bool,
     endian: Endian,
     file_size: u64,
-    alignment_power: u8,
     next_pos: u64,
     bucket_type: PhantomData<fn() -> B>,
 }
@@ -326,7 +320,6 @@ impl<'a, R: Seek, B> RecordSpaceIter<'a, R, B> {
             pv,
             endian,
             file_size: header.file_size,
-            alignment_power: header.alignment_power,
             next_pos: header.first_record,
             bucket_type: PhantomData,
         }
@@ -349,7 +342,7 @@ where
         self.reader.seek(SeekFrom::Start(self.next_pos)).unwrap();
         match self
             .reader
-            .read_type_args(self.endian, (self.next_pos, self.alignment_power, self.pv))
+            .read_type_args(self.endian, (self.next_pos, self.pv))
             .unwrap()
         {
             RecordSpace::FreeBlock(free_block) => {
