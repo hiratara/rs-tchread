@@ -39,6 +39,8 @@ enum SubCommand {
         /// Print values of records also
         pv: bool,
     },
+    /// Traverse through and stat all records
+    Inspect { path: String },
 }
 
 fn main() {
@@ -57,6 +59,7 @@ fn main() {
             bucket_number,
         } => run_dump_bucket(&path, bucket_number, endian),
         SubCommand::List { path, pv } => run_list(&path, pv, endian),
+        SubCommand::Inspect { path } => run_inspect(&path, endian),
     }
 }
 
@@ -226,4 +229,61 @@ where
             stdout.write_all(b"\n").unwrap();
         }
     }
+}
+
+fn run_inspect(path: &str, endian: Endian) {
+    match TCHDB::open_with_endian(&path, endian) {
+        TCHDB::Large(tchdb) => run_inspect_with_tchdb(tchdb),
+        TCHDB::Small(tchdb) => run_inspect_with_tchdb(tchdb),
+    }
+}
+
+fn run_inspect_with_tchdb<B, R>(mut tchdb: TCHDBImpl<B, R>)
+where
+    B: 'static + BinRead + Copy + std::fmt::Debug + Eq + Shl<u8, Output = B> + LowerHex + Into<u64>,
+    <B as BinRead>::Args<'static>: Default,
+    R: Read + Seek,
+{
+    let mut record_num = 0u64;
+    let mut key_length = 0.0f64;
+    let mut value_length = 0.0f64;
+    let mut padding_length = 0.0f64;
+    let mut freeblock_num = 0u64;
+    for record in tchdb.read_record_spaces(false) {
+        match record {
+            RecordSpace::Record(record) => {
+                record_num += 1;
+                key_length += record.key_size.0 as f64;
+                value_length += record.value_size.0 as f64;
+                padding_length += record.padding_size as f64;
+            }
+            RecordSpace::FreeBlock(_) => {
+                freeblock_num += 1;
+            }
+        }
+    }
+
+    let stdout = io::stdout().lock();
+    let mut stdout = BufWriter::new(stdout);
+
+    writeln!(stdout, "# of records: {}", record_num).unwrap();
+    writeln!(
+        stdout,
+        "avg of key length: {}",
+        key_length / record_num as f64
+    )
+    .unwrap();
+    writeln!(
+        stdout,
+        "avg of valu length: {}",
+        value_length / record_num as f64
+    )
+    .unwrap();
+    writeln!(
+        stdout,
+        "avg of padding length: {}",
+        padding_length / record_num as f64
+    )
+    .unwrap();
+    writeln!(stdout, "# of free blocks: {}", freeblock_num).unwrap();
 }
