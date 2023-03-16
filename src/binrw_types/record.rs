@@ -24,9 +24,9 @@ where
     pub padding_size: u16,
     pub key_size: VNum<u32>,
     pub value_size: VNum<u32>,
-    #[br(count = key_size.value)]
+    #[br(count = key_size.0)]
     pub key: Vec<u8>,
-    #[br(args {lazy: true, inner: (value_size.value,)})]
+    #[br(args {lazy: true, inner: (value_size.0,)})]
     pub value: Lazy<RecordValue, (u32,)>,
 }
 
@@ -40,10 +40,10 @@ where
             + 1
             + mem::size_of::<B>() as u64 * 2
             + 2
-            + self.key_size.size as u64
-            + self.value_size.size as u64
-            + self.key_size.value as u64
-            + self.value_size.value as u64
+            + self.key_size.size() as u64
+            + self.value_size.size() as u64
+            + self.key_size.0 as u64
+            + self.value_size.0 as u64
             + self.padding_size as u64
     }
 }

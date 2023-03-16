@@ -93,8 +93,8 @@ where
     for elem in tchdb.read_free_block_pool().into_iter() {
         println!(
             "free_block_pool: offset={:#01x}, size={}",
-            &elem.offset.value << tchdb.header.alignment_power,
-            &elem.size.value
+            &elem.offset.0 << tchdb.header.alignment_power,
+            &elem.size.0
         );
     }
 

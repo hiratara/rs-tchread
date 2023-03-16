@@ -1,14 +1,28 @@
 use std::{
     io::{Read, Seek},
-    ops::{Add, AddAssign, Mul, ShlAssign, Sub},
+    ops::{Add, AddAssign, Mul, ShlAssign, ShrAssign, Sub},
 };
 
 use binrw::{BinRead, BinResult, Endian};
 
 #[derive(Debug)]
-pub struct VNum<T> {
-    pub value: T,
-    pub size: u32,
+pub struct VNum<T>(pub T);
+
+impl<T> VNum<T>
+where
+    T: ShrAssign<i32> + Eq + From<u32> + Copy,
+{
+    pub fn size(&self) -> u32 {
+        let mut value = self.0;
+        let mut size = 1;
+        loop {
+            value >>= 7;
+            if value == From::from(0) {
+                return size;
+            }
+            size += 1;
+        }
+    }
 }
 
 impl<T> BinRead for VNum<T>
@@ -24,10 +38,8 @@ where
     ) -> BinResult<Self> {
         let mut value = T::from(0);
         let mut base = T::from(1);
-        let mut length = 0;
 
         loop {
-            length += 1;
             let x = T::from(<u8>::read_options(reader, endian, args)?);
             if x < T::from(0x80) {
                 value += x * base;
@@ -37,9 +49,6 @@ where
             base <<= 7;
         }
 
-        Ok(VNum {
-            value,
-            size: length,
-        })
+        Ok(VNum(value))
     }
 }

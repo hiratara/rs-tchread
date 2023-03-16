@@ -94,7 +94,7 @@ where
         let mut pool = Vec::with_capacity(pool_size);
         loop {
             let elem: FreeBlockPoolElement = self.reader.read_type(self.endian).unwrap();
-            if elem.offset.value == 0 && elem.size.value == 0 {
+            if elem.offset.0 == 0 && elem.size.0 == 0 {
                 break;
             }
             pool.push(elem);
