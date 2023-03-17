@@ -248,7 +248,18 @@ where
     <B as BinRead>::Args<'static>: Default,
     R: Read + Seek,
 {
+    let bucket_num;
+    let empty_bucket_num;
+    {
+        let buckets: Buckets<B> = tchdb.read_buckets();
+        bucket_num = buckets.0.len();
+        empty_bucket_num = buckets.0.into_iter().filter(|b| b.is_empty()).count();
+    }
+
     let mut record_num = 0u64;
+    let mut record_no_children = 0u64;
+    let mut record_one_child = 0u64;
+    let mut record_two_children = 0u64;
     let mut key_length = 0.0f64;
     let mut value_length = 0.0f64;
     let mut padding_length = 0.0f64;
@@ -260,6 +271,19 @@ where
                 key_length += record.key_size.0 as f64;
                 value_length += record.value_size.0 as f64;
                 padding_length += record.padding_size as f64;
+                if record.right_chain.is_empty() {
+                    if record.left_chain.is_empty() {
+                        record_no_children += 1;
+                    } else {
+                        record_one_child += 1;
+                    }
+                } else {
+                    if record.left_chain.is_empty() {
+                        record_one_child += 1;
+                    } else {
+                        record_two_children += 1;
+                    }
+                }
             }
             RecordSpace::FreeBlock(_) => {
                 freeblock_num += 1;
@@ -270,7 +294,22 @@ where
     let stdout = io::stdout().lock();
     let mut stdout = BufWriter::new(stdout);
 
+    writeln!(stdout, "# of buckets: {}", bucket_num).unwrap();
+    writeln!(stdout, "# of empty buckets: {}", empty_bucket_num).unwrap();
     writeln!(stdout, "# of records: {}", record_num).unwrap();
+    writeln!(
+        stdout,
+        "# of records without children: {}",
+        record_no_children
+    )
+    .unwrap();
+    writeln!(stdout, "# of records with one child: {}", record_one_child).unwrap();
+    writeln!(
+        stdout,
+        "# of records with two children: {}",
+        record_two_children
+    )
+    .unwrap();
     writeln!(
         stdout,
         "avg of key length: {}",
@@ -279,7 +318,7 @@ where
     .unwrap();
     writeln!(
         stdout,
-        "avg of valu length: {}",
+        "avg of value length: {}",
         value_length / record_num as f64
     )
     .unwrap();
