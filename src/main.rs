@@ -64,7 +64,7 @@ fn main() {
 }
 
 fn run_test(path: &str, endian: Endian) {
-    match TCHDB::open_multi_with_endian(&path, endian) {
+    match TCHDB::open_with_endian(&path, endian) {
         TCHDB::Large(tchdb) => run_test_with_tchdb(tchdb),
         TCHDB::Small(tchdb) => run_test_with_tchdb(tchdb),
     }
@@ -74,7 +74,7 @@ fn run_test_with_tchdb<B, R>(mut tchdb: TCHDBImpl<B, R>)
 where
     B: 'static + BinRead + Copy + std::fmt::Debug + Eq + Shl<u8, Output = B> + LowerHex + Into<u64>,
     <B as BinRead>::Args<'static>: Default,
-    R: Read + Seek + Clone,
+    R: Read + Seek,
 {
     println!("{:?}", &tchdb.header);
 
@@ -105,6 +105,7 @@ where
         );
     }
 
+    let mut tchdb = tchdb.into_multi();
     for record in tchdb.read_record_spaces_multi() {
         println!("{:?}", &record);
         if let RecordSpace::Record(record) = record {
@@ -113,6 +114,7 @@ where
             println!("got record: {:?}", tchdb.get_record(&key));
         }
     }
+    let mut tchdb = tchdb.into_inner();
 
     println!("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
 

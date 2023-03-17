@@ -15,6 +15,13 @@ impl<R> MultiRead<R> {
     pub fn new(reader: R) -> Self {
         MultiRead(Rc::new(RefCell::new(reader)))
     }
+
+    pub fn into_inner(self) -> R {
+        match Rc::try_unwrap(self.0) {
+            Ok(refcell) => refcell.into_inner(),
+            Err(_) => panic!("failed to unwrap MultiRead"),
+        }
+    }
 }
 
 impl<R: Read> Read for MultiRead<R> {
@@ -32,6 +39,32 @@ impl<R: Seek> Seek for MultiRead<R> {
 impl<R> Clone for MultiRead<R> {
     fn clone(&self) -> Self {
         Self(self.0.clone())
+    }
+}
+
+impl<B, R> TCHDBImpl<B, R> {
+    pub fn into_multi(self) -> TCHDBImpl<B, MultiRead<R>> {
+        TCHDBImpl {
+            reader: MultiRead::new(self.reader),
+            endian: self.endian,
+            header: self.header,
+            bucket_offset: self.bucket_offset,
+            free_block_pool_offset: self.free_block_pool_offset,
+            bucket_type: self.bucket_type,
+        }
+    }
+}
+
+impl<B, R> TCHDBImpl<B, MultiRead<R>> {
+    pub fn into_inner(self) -> TCHDBImpl<B, R> {
+        TCHDBImpl {
+            reader: self.reader.into_inner(),
+            endian: self.endian,
+            header: self.header,
+            bucket_offset: self.bucket_offset,
+            free_block_pool_offset: self.free_block_pool_offset,
+            bucket_type: self.bucket_type,
+        }
     }
 }
 

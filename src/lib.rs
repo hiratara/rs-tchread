@@ -13,10 +13,7 @@ use std::{
 
 use binrw::{io::BufReader, BinRead, BinReaderExt, Endian};
 
-use self::{
-    binrw_types::{Buckets, FreeBlockPoolElement, Header, Record, RecordOffset, RecordSpace},
-    multi_read::MultiRead,
-};
+use self::binrw_types::{Buckets, FreeBlockPoolElement, Header, Record, RecordOffset, RecordSpace};
 
 #[derive(Debug)]
 pub struct KeyWithHash<'a> {
@@ -267,24 +264,6 @@ impl TCHDB<BufReader<File>> {
         T: AsRef<Path>,
     {
         Self::open_with_endian(path, Endian::Little)
-    }
-}
-
-impl TCHDB<MultiRead<BufReader<File>>> {
-    pub fn open_multi_with_endian<T>(path: T, endian: Endian) -> Self
-    where
-        T: AsRef<Path>,
-    {
-        let file = File::open(path).unwrap();
-        let file = BufReader::new(file);
-        TCHDB::new(MultiRead::new(file), endian)
-    }
-
-    pub fn open_multi<T>(path: T) -> Self
-    where
-        T: AsRef<Path>,
-    {
-        Self::open_multi_with_endian(path, Endian::Little)
     }
 }
 
