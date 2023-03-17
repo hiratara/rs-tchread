@@ -7,7 +7,7 @@ use std::{
 
 use binrw::{BinRead, BinReaderExt, Endian};
 
-use super::{Header, RecordSpace, TCHDBImpl};
+use super::{Header, RecordSpace, TCHDB};
 
 pub struct MultiRead<R>(Rc<RefCell<R>>);
 
@@ -42,9 +42,9 @@ impl<R> Clone for MultiRead<R> {
     }
 }
 
-impl<B, R> TCHDBImpl<B, R> {
-    pub fn into_multi(self) -> TCHDBImpl<B, MultiRead<R>> {
-        TCHDBImpl {
+impl<B, R> TCHDB<B, R> {
+    pub fn into_multi(self) -> TCHDB<B, MultiRead<R>> {
+        TCHDB {
             reader: MultiRead::new(self.reader),
             endian: self.endian,
             header: self.header,
@@ -55,9 +55,9 @@ impl<B, R> TCHDBImpl<B, R> {
     }
 }
 
-impl<B, R> TCHDBImpl<B, MultiRead<R>> {
-    pub fn into_inner(self) -> TCHDBImpl<B, R> {
-        TCHDBImpl {
+impl<B, R> TCHDB<B, MultiRead<R>> {
+    pub fn into_inner(self) -> TCHDB<B, R> {
+        TCHDB {
             reader: self.reader.into_inner(),
             endian: self.endian,
             header: self.header,
@@ -68,7 +68,7 @@ impl<B, R> TCHDBImpl<B, MultiRead<R>> {
     }
 }
 
-impl<B, R: Clone> TCHDBImpl<B, R> {
+impl<B, R: Clone> TCHDB<B, R> {
     pub fn read_record_spaces_multi(&mut self) -> RecordSpaceMultiIter<R, B> {
         RecordSpaceMultiIter::new(self.reader.clone(), self.endian, &self.header)
     }

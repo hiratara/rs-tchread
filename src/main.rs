@@ -9,7 +9,8 @@ use structopt::StructOpt;
 
 use tchread::{
     binrw_types::{Buckets, RecordSpace},
-    TCHDBImpl, TCHDB,
+    load::TCHDBLoader,
+    TCHDB,
 };
 
 #[derive(StructOpt)]
@@ -64,13 +65,13 @@ fn main() {
 }
 
 fn run_test(path: &str, endian: Endian) {
-    match TCHDB::open_with_endian(&path, endian) {
-        TCHDB::Large(tchdb) => run_test_with_tchdb(tchdb),
-        TCHDB::Small(tchdb) => run_test_with_tchdb(tchdb),
+    match TCHDBLoader::open_with_endian(&path, endian) {
+        TCHDBLoader::Large(tchdb) => run_test_with_tchdb(tchdb),
+        TCHDBLoader::Small(tchdb) => run_test_with_tchdb(tchdb),
     }
 }
 
-fn run_test_with_tchdb<B, R>(mut tchdb: TCHDBImpl<B, R>)
+fn run_test_with_tchdb<B, R>(mut tchdb: TCHDB<B, R>)
 where
     B: 'static + BinRead + Copy + std::fmt::Debug + Eq + Shl<u8, Output = B> + LowerHex + Into<u64>,
     <B as BinRead>::Args<'static>: Default,
@@ -128,13 +129,13 @@ where
 }
 
 fn run_get(path: &str, key: &str, endian: Endian) {
-    match TCHDB::open_with_endian(&path, endian) {
-        TCHDB::Large(tchdb) => run_get_with_tchdb(tchdb, key),
-        TCHDB::Small(tchdb) => run_get_with_tchdb(tchdb, key),
+    match TCHDBLoader::open_with_endian(&path, endian) {
+        TCHDBLoader::Large(tchdb) => run_get_with_tchdb(tchdb, key),
+        TCHDBLoader::Small(tchdb) => run_get_with_tchdb(tchdb, key),
     }
 }
 
-fn run_get_with_tchdb<B, R>(mut tchdb: TCHDBImpl<B, R>, key: &str)
+fn run_get_with_tchdb<B, R>(mut tchdb: TCHDB<B, R>, key: &str)
 where
     B: 'static + BinRead + Copy + std::fmt::Debug + Eq + Shl<u8, Output = B> + LowerHex + Into<u64>,
     <B as BinRead>::Args<'static>: Default,
@@ -150,13 +151,13 @@ where
 }
 
 fn run_trace_to_get(path: &str, key: &str, endian: Endian) {
-    match TCHDB::open_with_endian(&path, endian) {
-        TCHDB::Large(tchdb) => run_trace_to_get_with_tchdb(tchdb, key),
-        TCHDB::Small(tchdb) => run_trace_to_get_with_tchdb(tchdb, key),
+    match TCHDBLoader::open_with_endian(&path, endian) {
+        TCHDBLoader::Large(tchdb) => run_trace_to_get_with_tchdb(tchdb, key),
+        TCHDBLoader::Small(tchdb) => run_trace_to_get_with_tchdb(tchdb, key),
     }
 }
 
-fn run_trace_to_get_with_tchdb<B, R>(mut tchdb: TCHDBImpl<B, R>, key: &str)
+fn run_trace_to_get_with_tchdb<B, R>(mut tchdb: TCHDB<B, R>, key: &str)
 where
     B: 'static + BinRead + Copy + std::fmt::Debug + Eq + Shl<u8, Output = B> + LowerHex + Into<u64>,
     <B as BinRead>::Args<'static>: Default,
@@ -184,13 +185,13 @@ where
 }
 
 fn run_dump_bucket(path: &str, bucket_number: u64, endian: Endian) {
-    match TCHDB::open_with_endian(&path, endian) {
-        TCHDB::Large(tchdb) => run_dump_bucket_with_tchdb(tchdb, bucket_number),
-        TCHDB::Small(tchdb) => run_dump_bucket_with_tchdb(tchdb, bucket_number),
+    match TCHDBLoader::open_with_endian(&path, endian) {
+        TCHDBLoader::Large(tchdb) => run_dump_bucket_with_tchdb(tchdb, bucket_number),
+        TCHDBLoader::Small(tchdb) => run_dump_bucket_with_tchdb(tchdb, bucket_number),
     }
 }
 
-fn run_dump_bucket_with_tchdb<B, R>(mut tchdb: TCHDBImpl<B, R>, bucket_number: u64)
+fn run_dump_bucket_with_tchdb<B, R>(mut tchdb: TCHDB<B, R>, bucket_number: u64)
 where
     B: 'static + BinRead + Copy + std::fmt::Debug + Eq + Shl<u8, Output = B> + LowerHex + Into<u64>,
     <B as BinRead>::Args<'static>: Default,
@@ -208,13 +209,13 @@ where
 }
 
 fn run_list(path: &str, pv: bool, endian: Endian) {
-    match TCHDB::open_with_endian(&path, endian) {
-        TCHDB::Large(tchdb) => run_list_with_tchdb(tchdb, pv),
-        TCHDB::Small(tchdb) => run_list_with_tchdb(tchdb, pv),
+    match TCHDBLoader::open_with_endian(&path, endian) {
+        TCHDBLoader::Large(tchdb) => run_list_with_tchdb(tchdb, pv),
+        TCHDBLoader::Small(tchdb) => run_list_with_tchdb(tchdb, pv),
     }
 }
 
-fn run_list_with_tchdb<B, R>(mut tchdb: TCHDBImpl<B, R>, pv: bool)
+fn run_list_with_tchdb<B, R>(mut tchdb: TCHDB<B, R>, pv: bool)
 where
     B: 'static + BinRead + Copy + std::fmt::Debug + Eq + Shl<u8, Output = B> + LowerHex + Into<u64>,
     <B as BinRead>::Args<'static>: Default,
@@ -238,13 +239,13 @@ where
 }
 
 fn run_inspect(path: &str, endian: Endian) {
-    match TCHDB::open_with_endian(&path, endian) {
-        TCHDB::Large(tchdb) => run_inspect_with_tchdb(tchdb),
-        TCHDB::Small(tchdb) => run_inspect_with_tchdb(tchdb),
+    match TCHDBLoader::open_with_endian(&path, endian) {
+        TCHDBLoader::Large(tchdb) => run_inspect_with_tchdb(tchdb),
+        TCHDBLoader::Small(tchdb) => run_inspect_with_tchdb(tchdb),
     }
 }
 
-fn run_inspect_with_tchdb<B, R>(mut tchdb: TCHDBImpl<B, R>)
+fn run_inspect_with_tchdb<B, R>(mut tchdb: TCHDB<B, R>)
 where
     B: 'static + BinRead + Copy + std::fmt::Debug + Eq + Shl<u8, Output = B> + LowerHex + Into<u64>,
     <B as BinRead>::Args<'static>: Default,

@@ -1,17 +1,16 @@
 pub mod binrw_types;
+pub mod load;
 mod multi_read;
 
 use std::{
     cmp::Ordering,
-    fs::File,
     io::{Read, Seek, SeekFrom},
     marker::PhantomData,
     mem,
     ops::Shl,
-    path::Path,
 };
 
-use binrw::{io::BufReader, BinRead, BinReaderExt, Endian};
+use binrw::{BinRead, BinReaderExt, Endian};
 
 use self::binrw_types::{Buckets, FreeBlockPoolElement, Header, Record, RecordOffset, RecordSpace};
 
@@ -22,7 +21,7 @@ pub struct KeyWithHash<'a> {
     pub hash: u8,
 }
 
-pub struct TCHDBImpl<B, R> {
+pub struct TCHDB<B, R> {
     pub reader: R,
     pub endian: Endian,
     pub header: Header,
@@ -31,7 +30,7 @@ pub struct TCHDBImpl<B, R> {
     bucket_type: PhantomData<fn() -> B>,
 }
 
-impl<B, R> TCHDBImpl<B, R> {
+impl<B, R> TCHDB<B, R> {
     pub fn hash<'a>(&self, key: &'a [u8]) -> KeyWithHash<'a> {
         let mut idx: u64 = 19780211;
         for &b in key {
@@ -52,7 +51,7 @@ impl<B, R> TCHDBImpl<B, R> {
     }
 }
 
-impl<B, R> TCHDBImpl<B, R>
+impl<B, R> TCHDB<B, R>
 where
     R: Seek,
 {
@@ -61,7 +60,7 @@ where
     }
 }
 
-impl<B, R> TCHDBImpl<B, R>
+impl<B, R> TCHDB<B, R>
 where
     R: Read + Seek,
 {
@@ -72,7 +71,7 @@ where
         let free_block_pool_offset =
             bucket_offset + header.bucket_number * mem::size_of::<B>() as u64;
 
-        TCHDBImpl {
+        TCHDB {
             reader,
             endian,
             header,
@@ -100,7 +99,7 @@ where
     }
 }
 
-impl<B, R> TCHDBImpl<B, R>
+impl<B, R> TCHDB<B, R>
 where
     B: BinRead,
     <B as BinRead>::Args<'static>: Default,
@@ -130,7 +129,7 @@ where
     }
 }
 
-impl<B, R> TCHDBImpl<B, R>
+impl<B, R> TCHDB<B, R>
 where
     B: BinRead + Copy + Shl<u8, Output = B> + Into<u64>,
     <B as BinRead>::Args<'static>: Default,
@@ -240,45 +239,6 @@ where
                 records.push(record);
                 self.traverse_records(left, records);
             }
-        }
-    }
-}
-
-pub enum TCHDB<R> {
-    Small(TCHDBImpl<u32, R>),
-    Large(TCHDBImpl<u64, R>),
-}
-
-impl TCHDB<BufReader<File>> {
-    pub fn open_with_endian<T>(path: T, endian: Endian) -> Self
-    where
-        T: AsRef<Path>,
-    {
-        let file = File::open(path).unwrap();
-        let file = BufReader::new(file);
-        TCHDB::new(file, endian)
-    }
-
-    pub fn open<T>(path: T) -> Self
-    where
-        T: AsRef<Path>,
-    {
-        Self::open_with_endian(path, Endian::Little)
-    }
-}
-
-impl<R> TCHDB<R>
-where
-    R: Read + Seek,
-{
-    pub fn new(mut reader: R, endian: Endian) -> Self {
-        reader.seek(SeekFrom::Start(0)).unwrap();
-        let header: Header = reader.read_type(endian).unwrap();
-
-        if header.options & 0x01 == 0x01 {
-            TCHDB::Large(TCHDBImpl::new(reader, endian, header))
-        } else {
-            TCHDB::Small(TCHDBImpl::new(reader, endian, header))
         }
     }
 }
