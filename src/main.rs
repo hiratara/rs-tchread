@@ -9,7 +9,7 @@ use structopt::StructOpt;
 
 use tchread::{
     binrw_types::{Buckets, RecordSpace},
-    load::TCHDBLoader,
+    load::{self, TCHDBLoaded},
     TCHDB,
 };
 
@@ -65,9 +65,9 @@ fn main() {
 }
 
 fn run_test(path: &str, endian: Endian) {
-    match TCHDBLoader::open_with_endian(&path, endian) {
-        TCHDBLoader::Large(tchdb) => run_test_with_tchdb(tchdb),
-        TCHDBLoader::Small(tchdb) => run_test_with_tchdb(tchdb),
+    match load::open_with_endian(&path, endian) {
+        TCHDBLoaded::Large(tchdb) => run_test_with_tchdb(tchdb),
+        TCHDBLoaded::Small(tchdb) => run_test_with_tchdb(tchdb),
     }
 }
 
@@ -129,9 +129,9 @@ where
 }
 
 fn run_get(path: &str, key: &str, endian: Endian) {
-    match TCHDBLoader::open_with_endian(&path, endian) {
-        TCHDBLoader::Large(tchdb) => run_get_with_tchdb(tchdb, key),
-        TCHDBLoader::Small(tchdb) => run_get_with_tchdb(tchdb, key),
+    match load::open_with_endian(&path, endian) {
+        TCHDBLoaded::Large(tchdb) => run_get_with_tchdb(tchdb, key),
+        TCHDBLoaded::Small(tchdb) => run_get_with_tchdb(tchdb, key),
     }
 }
 
@@ -151,9 +151,9 @@ where
 }
 
 fn run_trace_to_get(path: &str, key: &str, endian: Endian) {
-    match TCHDBLoader::open_with_endian(&path, endian) {
-        TCHDBLoader::Large(tchdb) => run_trace_to_get_with_tchdb(tchdb, key),
-        TCHDBLoader::Small(tchdb) => run_trace_to_get_with_tchdb(tchdb, key),
+    match load::open_with_endian(&path, endian) {
+        TCHDBLoaded::Large(tchdb) => run_trace_to_get_with_tchdb(tchdb, key),
+        TCHDBLoaded::Small(tchdb) => run_trace_to_get_with_tchdb(tchdb, key),
     }
 }
 
@@ -185,9 +185,9 @@ where
 }
 
 fn run_dump_bucket(path: &str, bucket_number: u64, endian: Endian) {
-    match TCHDBLoader::open_with_endian(&path, endian) {
-        TCHDBLoader::Large(tchdb) => run_dump_bucket_with_tchdb(tchdb, bucket_number),
-        TCHDBLoader::Small(tchdb) => run_dump_bucket_with_tchdb(tchdb, bucket_number),
+    match load::open_with_endian(&path, endian) {
+        TCHDBLoaded::Large(tchdb) => run_dump_bucket_with_tchdb(tchdb, bucket_number),
+        TCHDBLoaded::Small(tchdb) => run_dump_bucket_with_tchdb(tchdb, bucket_number),
     }
 }
 
@@ -209,9 +209,9 @@ where
 }
 
 fn run_list(path: &str, pv: bool, endian: Endian) {
-    match TCHDBLoader::open_with_endian(&path, endian) {
-        TCHDBLoader::Large(tchdb) => run_list_with_tchdb(tchdb, pv),
-        TCHDBLoader::Small(tchdb) => run_list_with_tchdb(tchdb, pv),
+    match load::open_with_endian(&path, endian) {
+        TCHDBLoaded::Large(tchdb) => run_list_with_tchdb(tchdb, pv),
+        TCHDBLoaded::Small(tchdb) => run_list_with_tchdb(tchdb, pv),
     }
 }
 
@@ -239,9 +239,9 @@ where
 }
 
 fn run_inspect(path: &str, endian: Endian) {
-    match TCHDBLoader::open_with_endian(&path, endian) {
-        TCHDBLoader::Large(tchdb) => run_inspect_with_tchdb(tchdb),
-        TCHDBLoader::Small(tchdb) => run_inspect_with_tchdb(tchdb),
+    match load::open_with_endian(&path, endian) {
+        TCHDBLoaded::Large(tchdb) => run_inspect_with_tchdb(tchdb),
+        TCHDBLoaded::Small(tchdb) => run_inspect_with_tchdb(tchdb),
     }
 }
 
