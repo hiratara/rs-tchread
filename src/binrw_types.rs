@@ -43,10 +43,7 @@ pub struct Header {
 
 #[derive(BinRead, Clone, Copy, Debug)]
 
-pub struct RecordOffset<U>
-where
-    U: U32orU64,
-{
+pub struct RecordOffset<U: U32orU64> {
     value: U,
 }
 

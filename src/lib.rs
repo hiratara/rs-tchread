@@ -21,16 +21,16 @@ pub struct KeyWithHash<'a> {
     pub hash: u8,
 }
 
-pub struct TCHDB<B, R> {
+pub struct TCHDB<U, R> {
     pub reader: R,
     pub endian: Endian,
     pub header: Header,
     pub bucket_offset: u64, // always be 256
     pub free_block_pool_offset: u64,
-    bucket_type: PhantomData<fn() -> B>,
+    bucket_type: PhantomData<fn() -> U>,
 }
 
-impl<B, R> TCHDB<B, R> {
+impl<U, R> TCHDB<U, R> {
     pub fn hash<'a>(&self, key: &'a [u8]) -> KeyWithHash<'a> {
         let mut idx: u64 = 19780211;
         for &b in key {
@@ -51,25 +51,19 @@ impl<B, R> TCHDB<B, R> {
     }
 }
 
-impl<B, R> TCHDB<B, R>
-where
-    R: Seek,
-{
-    pub fn read_record_spaces<'a>(&'a mut self, pv: bool) -> RecordSpaceIter<'a, R, B> {
+impl<U, R: Seek> TCHDB<U, R> {
+    pub fn read_record_spaces<'a>(&'a mut self, pv: bool) -> RecordSpaceIter<'a, U, R> {
         RecordSpaceIter::new(&mut self.reader, pv, self.endian, &self.header)
     }
 }
 
-impl<B, R> TCHDB<B, R>
-where
-    R: Read + Seek,
-{
+impl<U, R: Read + Seek> TCHDB<U, R> {
     fn new(mut reader: R, endian: Endian, header: Header) -> Self {
         let bucket_offset = reader.stream_position().unwrap();
         debug_assert_eq!(bucket_offset, 256);
 
         let free_block_pool_offset =
-            bucket_offset + header.bucket_number * mem::size_of::<B>() as u64;
+            bucket_offset + header.bucket_number * mem::size_of::<U>() as u64;
 
         TCHDB {
             reader,
@@ -122,9 +116,7 @@ impl<U: U32orU64, R: Read + Seek> TCHDB<U, R> {
         self.reader.seek(SeekFrom::Start(pos)).unwrap();
         self.reader.read_type(self.endian).unwrap()
     }
-}
 
-impl<U: U32orU64, R: Read + Seek> TCHDB<U, R> {
     fn read_record_space(&mut self, rec_off: RecordOffset<U>, read_value: bool) -> RecordSpace<U> {
         let offset = rec_off.offset(self.header.alignment_power);
         self.reader.seek(SeekFrom::Start(offset)).unwrap();
@@ -233,16 +225,16 @@ impl<U: U32orU64, R: Read + Seek> TCHDB<U, R> {
     }
 }
 
-pub struct RecordSpaceIter<'a, R, B> {
+pub struct RecordSpaceIter<'a, U, R> {
     reader: &'a mut R,
     pv: bool,
     endian: Endian,
     file_size: u64,
     next_pos: u64,
-    bucket_type: PhantomData<fn() -> B>,
+    bucket_type: PhantomData<fn() -> U>,
 }
 
-impl<'a, R: Seek, B> RecordSpaceIter<'a, R, B> {
+impl<'a, U, R: Seek> RecordSpaceIter<'a, U, R> {
     fn new(reader: &'a mut R, pv: bool, endian: Endian, header: &Header) -> Self {
         RecordSpaceIter {
             reader,
@@ -255,7 +247,7 @@ impl<'a, R: Seek, B> RecordSpaceIter<'a, R, B> {
     }
 }
 
-impl<'a, R: Read + Seek, U: U32orU64> Iterator for RecordSpaceIter<'a, R, U> {
+impl<'a, U: U32orU64, R: Read + Seek> Iterator for RecordSpaceIter<'a, U, R> {
     type Item = RecordSpace<U>;
 
     fn next(&mut self) -> Option<Self::Item> {
