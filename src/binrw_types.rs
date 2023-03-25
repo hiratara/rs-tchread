@@ -2,24 +2,19 @@ mod lazy_load;
 mod record;
 mod vnum;
 
-use std::{fmt::Debug, ops::Shl};
+use std::fmt::Debug;
 
 use binrw::BinRead;
+use num_traits::int::PrimInt;
 
 pub use self::record::Record;
 
 use vnum::VNum;
 
 /// u32 or u64 value
-pub trait U32orU64:
-    BinRead<Args<'static> = ()> + Copy + Debug + Shl<u8> + Into<u64> + 'static
-{
-}
+pub trait U32orU64: BinRead<Args<'static> = ()> + Debug + PrimInt + 'static {}
 
-impl<T> U32orU64 for T where
-    T: BinRead<Args<'static> = ()> + Copy + Debug + Shl<u8> + Into<u64> + 'static
-{
-}
+impl<T> U32orU64 for T where T: BinRead<Args<'static> = ()> + Debug + PrimInt + 'static {}
 
 #[derive(BinRead, Debug)]
 pub struct Header {
@@ -50,12 +45,12 @@ pub struct RecordOffset<U: U32orU64> {
 impl<U: U32orU64> RecordOffset<U> {
     #[inline]
     pub fn offset(&self, alignment_power: u8) -> u64 {
-        self.value.into() << alignment_power
+        self.value.to_u64().unwrap() << alignment_power
     }
 
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.value.into() <= 0
+        self.value <= U::zero()
     }
 }
 
