@@ -5,7 +5,9 @@ use std::{
     rc::Rc,
 };
 
-use binrw::{BinRead, BinReaderExt, Endian};
+use binrw::{BinReaderExt, Endian};
+
+use crate::binrw_types::U32orU64;
 
 use super::{Header, RecordSpace, TCHDB};
 
@@ -93,13 +95,8 @@ impl<R, B> RecordSpaceMultiIter<R, B> {
     }
 }
 
-impl<R, B> Iterator for RecordSpaceMultiIter<R, B>
-where
-    R: Read + Seek,
-    B: BinRead,
-    <B as BinRead>::Args<'static>: Default,
-{
-    type Item = RecordSpace<B>;
+impl<R: Read + Seek, U: U32orU64> Iterator for RecordSpaceMultiIter<R, U> {
+    type Item = RecordSpace<U>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.next_pos >= self.file_size {

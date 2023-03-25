@@ -5,20 +5,16 @@ use binrw::BinRead;
 use super::lazy_load::Lazy;
 use super::vnum::VNum;
 
-use super::RecordOffset;
+use super::{RecordOffset, U32orU64};
 
 #[derive(BinRead, Debug)]
 #[br(import(offset: u64, read_value: bool))]
-pub struct Record<B>
-where
-    B: BinRead,
-    <B as BinRead>::Args<'static>: Default,
-{
+pub struct Record<U: U32orU64> {
     #[br(calc = offset)]
     pub offset: u64,
     pub hash_value: u8,
-    pub left_chain: RecordOffset<B>,
-    pub right_chain: RecordOffset<B>,
+    pub left_chain: RecordOffset<U>,
+    pub right_chain: RecordOffset<U>,
     pub padding_size: u16,
     pub key_size: VNum<u32>,
     pub value_size: VNum<u32>,
@@ -28,16 +24,12 @@ where
     pub value: Lazy<RecordValue, (u32,)>,
 }
 
-impl<B> Record<B>
-where
-    B: BinRead,
-    <B as BinRead>::Args<'static>: Default,
-{
+impl<U: U32orU64> Record<U> {
     #[inline]
     pub fn next_record(&self) -> u64 {
         self.offset
             + 1
-            + mem::size_of::<B>() as u64 * 2
+            + mem::size_of::<U>() as u64 * 2
             + 2
             + self.key_size.size() as u64
             + self.value_size.size() as u64

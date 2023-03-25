@@ -1,15 +1,13 @@
 use std::{
-    fmt::LowerHex,
     io::{self, BufWriter, Read, Seek, Write},
-    ops::Shl,
     path::Path,
 };
 
-use binrw::{BinRead, Endian};
+use binrw::Endian;
 use structopt::StructOpt;
 
 use tchread::{
-    binrw_types::{Buckets, RecordSpace},
+    binrw_types::{Buckets, RecordSpace, U32orU64},
     load::{self, TCHDBLoaded},
     TCHDB,
 };
@@ -89,22 +87,10 @@ impl Executer for Test {
 }
 
 impl Test {
-    fn run_each_size<B, R>(&self, mut tchdb: TCHDB<B, R>)
-    where
-        B: 'static
-            + BinRead
-            + Copy
-            + std::fmt::Debug
-            + Eq
-            + Shl<u8, Output = B>
-            + LowerHex
-            + Into<u64>,
-        <B as BinRead>::Args<'static>: Default,
-        R: Read + Seek,
-    {
+    fn run_each_size<U: U32orU64, R: Read + Seek>(&self, mut tchdb: TCHDB<U, R>) {
         println!("{:?}", &tchdb.header);
 
-        let buckets: Buckets<B> = tchdb.read_buckets();
+        let buckets: Buckets<U> = tchdb.read_buckets();
         println!("bucket length: {}", buckets.0.len());
         for (i, pos) in buckets
             .0
@@ -177,19 +163,7 @@ impl Executer for Get {
 }
 
 impl Get {
-    fn run_each_size<B, R>(&self, mut tchdb: TCHDB<B, R>)
-    where
-        B: 'static
-            + BinRead
-            + Copy
-            + std::fmt::Debug
-            + Eq
-            + Shl<u8, Output = B>
-            + LowerHex
-            + Into<u64>,
-        <B as BinRead>::Args<'static>: Default,
-        R: Read + Seek,
-    {
+    fn run_each_size<U: U32orU64, R: Read + Seek>(&self, mut tchdb: TCHDB<U, R>) {
         let stdout = io::stdout().lock();
         let mut stdout = BufWriter::new(stdout);
 
@@ -223,19 +197,7 @@ impl Executer for TraceToGet {
 }
 
 impl TraceToGet {
-    fn run_each_size<B, R>(&self, mut tchdb: TCHDB<B, R>)
-    where
-        B: 'static
-            + BinRead
-            + Copy
-            + std::fmt::Debug
-            + Eq
-            + Shl<u8, Output = B>
-            + LowerHex
-            + Into<u64>,
-        <B as BinRead>::Args<'static>: Default,
-        R: Read + Seek,
-    {
+    fn run_each_size<U: U32orU64, R: Read + Seek>(&self, mut tchdb: TCHDB<U, R>) {
         let stdout = io::stdout().lock();
         let mut stdout = BufWriter::new(stdout);
 
@@ -281,19 +243,7 @@ impl Executer for DumpBucket {
 }
 
 impl DumpBucket {
-    fn run_each_size<B, R>(&self, mut tchdb: TCHDB<B, R>)
-    where
-        B: 'static
-            + BinRead
-            + Copy
-            + std::fmt::Debug
-            + Eq
-            + Shl<u8, Output = B>
-            + LowerHex
-            + Into<u64>,
-        <B as BinRead>::Args<'static>: Default,
-        R: Read + Seek,
-    {
+    fn run_each_size<U: U32orU64, R: Read + Seek>(&self, mut tchdb: TCHDB<U, R>) {
         let stdout = io::stdout().lock();
         let mut stdout = BufWriter::new(stdout);
 
@@ -331,19 +281,7 @@ impl Executer for List {
 }
 
 impl List {
-    fn run_each_size<B, R>(&self, mut tchdb: TCHDB<B, R>)
-    where
-        B: 'static
-            + BinRead
-            + Copy
-            + std::fmt::Debug
-            + Eq
-            + Shl<u8, Output = B>
-            + LowerHex
-            + Into<u64>,
-        <B as BinRead>::Args<'static>: Default,
-        R: Read + Seek,
-    {
+    fn run_each_size<U: U32orU64, R: Read + Seek>(&self, mut tchdb: TCHDB<U, R>) {
         let stdout = io::stdout().lock();
         let mut stdout = BufWriter::new(stdout);
 
@@ -384,23 +322,11 @@ impl Executer for Inspect {
 }
 
 impl Inspect {
-    fn run_each_size<B, R>(&self, mut tchdb: TCHDB<B, R>)
-    where
-        B: 'static
-            + BinRead
-            + Copy
-            + std::fmt::Debug
-            + Eq
-            + Shl<u8, Output = B>
-            + LowerHex
-            + Into<u64>,
-        <B as BinRead>::Args<'static>: Default,
-        R: Read + Seek,
-    {
+    fn run_each_size<U: U32orU64, R: Read + Seek>(&self, mut tchdb: TCHDB<U, R>) {
         let bucket_num;
         let empty_bucket_num;
         {
-            let buckets: Buckets<B> = tchdb.read_buckets();
+            let buckets: Buckets<U> = tchdb.read_buckets();
             bucket_num = buckets.0.len();
             empty_bucket_num = buckets.0.into_iter().filter(|b| b.is_empty()).count();
         }
