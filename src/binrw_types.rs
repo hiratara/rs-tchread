@@ -12,17 +12,13 @@ use vnum::VNum;
 
 /// u32 or u64 value
 pub trait U32orU64:
-    BinRead<Args<'static> = Self::BinReadArgs> + Copy + Debug + Shl<u8> + Into<u64> + 'static
+    BinRead<Args<'static> = ()> + Copy + Debug + Shl<u8> + Into<u64> + 'static
 {
-    type BinReadArgs: Default;
 }
 
-impl<T> U32orU64 for T
-where
-    T: BinRead + Copy + Debug + Shl<u8> + Into<u64> + 'static,
-    T::Args<'static>: Default,
+impl<T> U32orU64 for T where
+    T: BinRead<Args<'static> = ()> + Copy + Debug + Shl<u8> + Into<u64> + 'static
 {
-    type BinReadArgs = Self::Args<'static>;
 }
 
 #[derive(BinRead, Debug)]
