@@ -54,16 +54,14 @@ trait Executer {
     fn run_with_endian(&self, endian: Endian) {
         let path = self.path();
         match load::open_with_endian(&path, endian) {
-            TCHDBLoaded::Large(tchdb) => self.run_large(tchdb),
-            TCHDBLoaded::Small(tchdb) => self.run_small(tchdb),
+            TCHDBLoaded::Large(tchdb) => self.execute(tchdb),
+            TCHDBLoaded::Small(tchdb) => self.execute(tchdb),
         }
     }
 
     fn path(&self) -> &Path;
 
-    fn run_large<R: Read + Seek>(&self, tchdb: TCHDB<u64, R>);
-
-    fn run_small<R: Read + Seek>(&self, tchdb: TCHDB<u32, R>);
+    fn execute<B: U32orU64, R: Read + Seek>(&self, tchdb: TCHDB<B, R>);
 }
 
 #[derive(StructOpt)]
@@ -77,17 +75,7 @@ impl Executer for Test {
         Path::new(&self.path)
     }
 
-    fn run_large<R: Read + Seek>(&self, tchdb: TCHDB<u64, R>) {
-        self.run_each_size(tchdb)
-    }
-
-    fn run_small<R: Read + Seek>(&self, tchdb: TCHDB<u32, R>) {
-        self.run_each_size(tchdb)
-    }
-}
-
-impl Test {
-    fn run_each_size<U: U32orU64, R: Read + Seek>(&self, mut tchdb: TCHDB<U, R>) {
+    fn execute<U: U32orU64, R: Read + Seek>(&self, mut tchdb: TCHDB<U, R>) {
         println!("{:?}", &tchdb.header);
 
         let buckets: Buckets<U> = tchdb.read_buckets();
@@ -153,17 +141,7 @@ impl Executer for Get {
         Path::new(&self.path)
     }
 
-    fn run_large<R: Read + Seek>(&self, tchdb: TCHDB<u64, R>) {
-        self.run_each_size(tchdb)
-    }
-
-    fn run_small<R: Read + Seek>(&self, tchdb: TCHDB<u32, R>) {
-        self.run_each_size(tchdb)
-    }
-}
-
-impl Get {
-    fn run_each_size<U: U32orU64, R: Read + Seek>(&self, mut tchdb: TCHDB<U, R>) {
+    fn execute<U: U32orU64, R: Read + Seek>(&self, mut tchdb: TCHDB<U, R>) {
         let stdout = io::stdout().lock();
         let mut stdout = BufWriter::new(stdout);
 
@@ -187,17 +165,7 @@ impl Executer for TraceToGet {
         Path::new(&self.path)
     }
 
-    fn run_large<R: Read + Seek>(&self, tchdb: TCHDB<u64, R>) {
-        self.run_each_size(tchdb)
-    }
-
-    fn run_small<R: Read + Seek>(&self, tchdb: TCHDB<u32, R>) {
-        self.run_each_size(tchdb)
-    }
-}
-
-impl TraceToGet {
-    fn run_each_size<U: U32orU64, R: Read + Seek>(&self, mut tchdb: TCHDB<U, R>) {
+    fn execute<U: U32orU64, R: Read + Seek>(&self, mut tchdb: TCHDB<U, R>) {
         let stdout = io::stdout().lock();
         let mut stdout = BufWriter::new(stdout);
 
@@ -233,17 +201,7 @@ impl Executer for DumpBucket {
         Path::new(&self.path)
     }
 
-    fn run_large<R: Read + Seek>(&self, tchdb: TCHDB<u64, R>) {
-        self.run_each_size(tchdb)
-    }
-
-    fn run_small<R: Read + Seek>(&self, tchdb: TCHDB<u32, R>) {
-        self.run_each_size(tchdb)
-    }
-}
-
-impl DumpBucket {
-    fn run_each_size<U: U32orU64, R: Read + Seek>(&self, mut tchdb: TCHDB<U, R>) {
+    fn execute<U: U32orU64, R: Read + Seek>(&self, mut tchdb: TCHDB<U, R>) {
         let stdout = io::stdout().lock();
         let mut stdout = BufWriter::new(stdout);
 
@@ -271,17 +229,7 @@ impl Executer for List {
         Path::new(&self.path)
     }
 
-    fn run_large<R: Read + Seek>(&self, tchdb: TCHDB<u64, R>) {
-        self.run_each_size(tchdb)
-    }
-
-    fn run_small<R: Read + Seek>(&self, tchdb: TCHDB<u32, R>) {
-        self.run_each_size(tchdb)
-    }
-}
-
-impl List {
-    fn run_each_size<U: U32orU64, R: Read + Seek>(&self, mut tchdb: TCHDB<U, R>) {
+    fn execute<U: U32orU64, R: Read + Seek>(&self, mut tchdb: TCHDB<U, R>) {
         let stdout = io::stdout().lock();
         let mut stdout = BufWriter::new(stdout);
 
@@ -312,17 +260,7 @@ impl Executer for Inspect {
         Path::new(&self.path)
     }
 
-    fn run_large<R: Read + Seek>(&self, tchdb: TCHDB<u64, R>) {
-        self.run_each_size(tchdb)
-    }
-
-    fn run_small<R: Read + Seek>(&self, tchdb: TCHDB<u32, R>) {
-        self.run_each_size(tchdb)
-    }
-}
-
-impl Inspect {
-    fn run_each_size<U: U32orU64, R: Read + Seek>(&self, mut tchdb: TCHDB<U, R>) {
+    fn execute<U: U32orU64, R: Read + Seek>(&self, mut tchdb: TCHDB<U, R>) {
         let bucket_num;
         let empty_bucket_num;
         {
