@@ -7,6 +7,7 @@ version = "0.1.0"
 
 [dependencies]
 binrw = "0.11.1"
+num-traits = "0.2.15"
 structopt = "0.3.26"
 
 [[bin]]

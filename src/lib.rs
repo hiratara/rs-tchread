@@ -7,10 +7,10 @@ use std::{
     io::{Read, Seek, SeekFrom},
     marker::PhantomData,
     mem,
-    ops::Shl,
 };
 
-use binrw::{BinRead, BinReaderExt, Endian};
+use binrw::{BinReaderExt, Endian};
+use binrw_types::U32orU64;
 
 use self::binrw_types::{Buckets, FreeBlockPoolElement, Header, Record, RecordOffset, RecordSpace};
 
@@ -21,16 +21,16 @@ pub struct KeyWithHash<'a> {
     pub hash: u8,
 }
 
-pub struct TCHDB<B, R> {
+pub struct TCHDB<U, R> {
     pub reader: R,
     pub endian: Endian,
     pub header: Header,
     pub bucket_offset: u64, // always be 256
     pub free_block_pool_offset: u64,
-    bucket_type: PhantomData<fn() -> B>,
+    bucket_type: PhantomData<fn() -> U>,
 }
 
-impl<B, R> TCHDB<B, R> {
+impl<U, R> TCHDB<U, R> {
     pub fn hash<'a>(&self, key: &'a [u8]) -> KeyWithHash<'a> {
         let mut idx: u64 = 19780211;
         for &b in key {
@@ -51,25 +51,19 @@ impl<B, R> TCHDB<B, R> {
     }
 }
 
-impl<B, R> TCHDB<B, R>
-where
-    R: Seek,
-{
-    pub fn read_record_spaces<'a>(&'a mut self, pv: bool) -> RecordSpaceIter<'a, R, B> {
+impl<U, R: Seek> TCHDB<U, R> {
+    pub fn read_record_spaces<'a>(&'a mut self, pv: bool) -> RecordSpaceIter<'a, U, R> {
         RecordSpaceIter::new(&mut self.reader, pv, self.endian, &self.header)
     }
 }
 
-impl<B, R> TCHDB<B, R>
-where
-    R: Read + Seek,
-{
+impl<U, R: Read + Seek> TCHDB<U, R> {
     fn new(mut reader: R, endian: Endian, header: Header) -> Self {
         let bucket_offset = reader.stream_position().unwrap();
         debug_assert_eq!(bucket_offset, 256);
 
         let free_block_pool_offset =
-            bucket_offset + header.bucket_number * mem::size_of::<B>() as u64;
+            bucket_offset + header.bucket_number * mem::size_of::<U>() as u64;
 
         TCHDB {
             reader,
@@ -99,13 +93,8 @@ where
     }
 }
 
-impl<B, R> TCHDB<B, R>
-where
-    B: BinRead,
-    <B as BinRead>::Args<'static>: Default,
-    R: Read + Seek,
-{
-    pub fn read_buckets(&mut self) -> Buckets<B> {
+impl<U: U32orU64, R: Read + Seek> TCHDB<U, R> {
+    pub fn read_buckets(&mut self) -> Buckets<U> {
         self.reader
             .seek(SeekFrom::Start(self.bucket_offset))
             .unwrap();
@@ -122,20 +111,13 @@ where
         buckets
     }
 
-    fn read_bucket(&mut self, idx: u64) -> RecordOffset<B> {
-        let pos = self.bucket_offset + mem::size_of::<B>() as u64 * idx;
+    fn read_bucket(&mut self, idx: u64) -> RecordOffset<U> {
+        let pos = self.bucket_offset + mem::size_of::<U>() as u64 * idx;
         self.reader.seek(SeekFrom::Start(pos)).unwrap();
         self.reader.read_type(self.endian).unwrap()
     }
-}
 
-impl<B, R> TCHDB<B, R>
-where
-    B: BinRead + Copy + Shl<u8, Output = B> + Into<u64>,
-    <B as BinRead>::Args<'static>: Default,
-    R: Read + Seek,
-{
-    fn read_record_space(&mut self, rec_off: RecordOffset<B>, read_value: bool) -> RecordSpace<B> {
+    fn read_record_space(&mut self, rec_off: RecordOffset<U>, read_value: bool) -> RecordSpace<U> {
         let offset = rec_off.offset(self.header.alignment_power);
         self.reader.seek(SeekFrom::Start(offset)).unwrap();
         self.reader
@@ -143,7 +125,7 @@ where
             .unwrap()
     }
 
-    pub fn get_record(&mut self, key: &KeyWithHash) -> Option<Record<B>> {
+    pub fn get_record(&mut self, key: &KeyWithHash) -> Option<Record<U>> {
         let (found, mut log) = self.get_record_detail(key);
         if found {
             Some(log.remove(log.len() - 1))
@@ -152,7 +134,7 @@ where
         }
     }
 
-    pub fn get_record_detail(&mut self, key: &KeyWithHash) -> (bool, Vec<Record<B>>) {
+    pub fn get_record_detail(&mut self, key: &KeyWithHash) -> (bool, Vec<Record<U>>) {
         let mut rec_off = self.read_bucket(key.idx);
 
         let mut visited_records = Vec::new();
@@ -207,13 +189,13 @@ where
         }
     }
 
-    pub fn get_detail<'a>(&mut self, key_str: &'a str) -> (KeyWithHash<'a>, bool, Vec<Record<B>>) {
+    pub fn get_detail<'a>(&mut self, key_str: &'a str) -> (KeyWithHash<'a>, bool, Vec<Record<U>>) {
         let key = self.hash(key_str.as_bytes());
         let (found, visited_records) = self.get_record_detail(&key);
         (key, found, visited_records)
     }
 
-    pub fn dump_bucket(&mut self, bucket_number: u64) -> Vec<Record<B>> {
+    pub fn dump_bucket(&mut self, bucket_number: u64) -> Vec<Record<U>> {
         let mut records = Vec::new();
         let rec_off = self.read_bucket(bucket_number);
 
@@ -222,7 +204,7 @@ where
         records
     }
 
-    fn traverse_records(&mut self, rec_off: RecordOffset<B>, records: &mut Vec<Record<B>>) {
+    fn traverse_records(&mut self, rec_off: RecordOffset<U>, records: &mut Vec<Record<U>>) {
         if rec_off.is_empty() {
             return;
         }
@@ -243,16 +225,16 @@ where
     }
 }
 
-pub struct RecordSpaceIter<'a, R, B> {
+pub struct RecordSpaceIter<'a, U, R> {
     reader: &'a mut R,
     pv: bool,
     endian: Endian,
     file_size: u64,
     next_pos: u64,
-    bucket_type: PhantomData<fn() -> B>,
+    bucket_type: PhantomData<fn() -> U>,
 }
 
-impl<'a, R: Seek, B> RecordSpaceIter<'a, R, B> {
+impl<'a, U, R: Seek> RecordSpaceIter<'a, U, R> {
     fn new(reader: &'a mut R, pv: bool, endian: Endian, header: &Header) -> Self {
         RecordSpaceIter {
             reader,
@@ -265,13 +247,8 @@ impl<'a, R: Seek, B> RecordSpaceIter<'a, R, B> {
     }
 }
 
-impl<'a, R, B> Iterator for RecordSpaceIter<'a, R, B>
-where
-    R: Read + Seek,
-    B: BinRead,
-    <B as BinRead>::Args<'static>: Default,
-{
-    type Item = RecordSpace<B>;
+impl<'a, U: U32orU64, R: Read + Seek> Iterator for RecordSpaceIter<'a, U, R> {
+    type Item = RecordSpace<U>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.next_pos >= self.file_size {

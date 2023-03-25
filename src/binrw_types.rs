@@ -2,13 +2,19 @@ mod lazy_load;
 mod record;
 mod vnum;
 
-use std::ops::Shl;
+use std::fmt::Debug;
 
 use binrw::BinRead;
+use num_traits::int::PrimInt;
 
 pub use self::record::Record;
 
 use vnum::VNum;
+
+/// u32 or u64 value
+pub trait U32orU64: BinRead<Args<'static> = ()> + Debug + PrimInt + 'static {}
+
+impl<T> U32orU64 for T where T: BinRead<Args<'static> = ()> + Debug + PrimInt + 'static {}
 
 #[derive(BinRead, Debug)]
 pub struct Header {
@@ -32,36 +38,25 @@ pub struct Header {
 
 #[derive(BinRead, Clone, Copy, Debug)]
 
-pub struct RecordOffset<B>
-where
-    B: BinRead,
-    <B as BinRead>::Args<'static>: Default,
-{
-    value: B,
+pub struct RecordOffset<U: U32orU64> {
+    value: U,
 }
 
-impl<B> RecordOffset<B>
-where
-    B: BinRead + Copy + Shl<u8, Output = B> + Into<u64>,
-    <B as BinRead>::Args<'static>: Default,
-{
+impl<U: U32orU64> RecordOffset<U> {
     #[inline]
     pub fn offset(&self, alignment_power: u8) -> u64 {
-        self.value.into() << alignment_power
+        self.value.to_u64().unwrap() << alignment_power
     }
 
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.value.into() <= 0
+        self.value <= U::zero()
     }
 }
 
 #[derive(BinRead, Debug)]
 #[br(import(bucket_number: u64))]
-pub struct Buckets<B>(#[br(count = bucket_number)] pub Vec<RecordOffset<B>>)
-where
-    B: 'static + BinRead,
-    <B as BinRead>::Args<'static>: Default;
+pub struct Buckets<U: U32orU64>(#[br(count = bucket_number)] pub Vec<RecordOffset<U>>);
 
 #[derive(BinRead, Debug)]
 pub struct FreeBlockPoolElement {
@@ -78,14 +73,10 @@ pub struct FreeBlock {
 
 #[derive(BinRead, Debug)]
 #[br(import(offset: u64, read_value: bool))]
-pub enum RecordSpace<B>
-where
-    B: BinRead,
-    <B as BinRead>::Args<'static>: Default,
-{
+pub enum RecordSpace<U: U32orU64> {
     #[br(magic = 0xc8u8)]
     // add the length of magic to the offset
-    Record(#[br(args(offset + 1, read_value))] Record<B>),
+    Record(#[br(args(offset + 1, read_value))] Record<U>),
     #[br(magic = 0xb0u8)]
     FreeBlock(FreeBlock),
 }

@@ -5,7 +5,9 @@ use std::{
     rc::Rc,
 };
 
-use binrw::{BinRead, BinReaderExt, Endian};
+use binrw::{BinReaderExt, Endian};
+
+use crate::binrw_types::U32orU64;
 
 use super::{Header, RecordSpace, TCHDB};
 
@@ -42,8 +44,8 @@ impl<R> Clone for MultiRead<R> {
     }
 }
 
-impl<B, R> TCHDB<B, R> {
-    pub fn into_multi(self) -> TCHDB<B, MultiRead<R>> {
+impl<U, R> TCHDB<U, R> {
+    pub fn into_multi(self) -> TCHDB<U, MultiRead<R>> {
         TCHDB {
             reader: MultiRead::new(self.reader),
             endian: self.endian,
@@ -55,8 +57,8 @@ impl<B, R> TCHDB<B, R> {
     }
 }
 
-impl<B, R> TCHDB<B, MultiRead<R>> {
-    pub fn into_inner(self) -> TCHDB<B, R> {
+impl<U, R> TCHDB<U, MultiRead<R>> {
+    pub fn into_inner(self) -> TCHDB<U, R> {
         TCHDB {
             reader: self.reader.into_inner(),
             endian: self.endian,
@@ -68,20 +70,20 @@ impl<B, R> TCHDB<B, MultiRead<R>> {
     }
 }
 
-impl<B, R: Clone> TCHDB<B, R> {
-    pub fn read_record_spaces_multi(&mut self) -> RecordSpaceMultiIter<R, B> {
+impl<U, R: Clone> TCHDB<U, R> {
+    pub fn read_record_spaces_multi(&mut self) -> RecordSpaceMultiIter<U, R> {
         RecordSpaceMultiIter::new(self.reader.clone(), self.endian, &self.header)
     }
 }
-pub struct RecordSpaceMultiIter<R, B> {
+pub struct RecordSpaceMultiIter<U, R> {
     reader: R,
     endian: Endian,
     file_size: u64,
     next_pos: u64,
-    _bucket_type: PhantomData<B>,
+    _bucket_type: PhantomData<U>,
 }
 
-impl<R, B> RecordSpaceMultiIter<R, B> {
+impl<U, R> RecordSpaceMultiIter<U, R> {
     fn new(reader: R, endian: Endian, header: &Header) -> Self {
         RecordSpaceMultiIter {
             reader,
@@ -93,13 +95,8 @@ impl<R, B> RecordSpaceMultiIter<R, B> {
     }
 }
 
-impl<R, B> Iterator for RecordSpaceMultiIter<R, B>
-where
-    R: Read + Seek,
-    B: BinRead,
-    <B as BinRead>::Args<'static>: Default,
-{
-    type Item = RecordSpace<B>;
+impl<U: U32orU64, R: Read + Seek> Iterator for RecordSpaceMultiIter<U, R> {
+    type Item = RecordSpace<U>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.next_pos >= self.file_size {
