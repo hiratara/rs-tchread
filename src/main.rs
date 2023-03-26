@@ -41,26 +41,43 @@ fn main() {
         Endian::Little
     };
     match command.sub_command {
-        SubCommand::Test(test) => test.run_with_endian(endian),
-        SubCommand::Get(get) => get.run_with_endian(endian),
-        SubCommand::TraceToGet(trace_to_get) => trace_to_get.run_with_endian(endian),
-        SubCommand::DumpBucket(dump_bucket) => dump_bucket.run_with_endian(endian),
-        SubCommand::List(list) => list.run_with_endian(endian),
-        SubCommand::Inspect(inspect) => inspect.run_with_endian(endian),
+        SubCommand::Test(test) => run_with_endian(test, endian),
+        SubCommand::Get(get) => run_with_endian(get, endian),
+        SubCommand::TraceToGet(trace_to_get) => run_with_endian(trace_to_get, endian),
+        SubCommand::DumpBucket(dump_bucket) => run_with_endian(dump_bucket, endian),
+        SubCommand::List(list) => run_with_endian(list, endian),
+        SubCommand::Inspect(inspect) => run_with_endian(inspect, endian),
     }
 }
 
-trait Executer {
-    fn run_with_endian(&self, endian: Endian) {
-        let path = self.path();
-        match load::open_with_endian(&path, endian) {
-            TCHDBLoaded::Large(tchdb) => self.execute(tchdb),
-            TCHDBLoaded::Small(tchdb) => self.execute(tchdb),
-        }
+fn run_with_endian<T: WithPath + Executer>(command: T, endian: Endian) {
+    let path = command.path();
+    match load::open_with_endian(&path, endian) {
+        TCHDBLoaded::Large(tchdb) => command.execute(tchdb),
+        TCHDBLoaded::Small(tchdb) => command.execute(tchdb),
     }
+}
 
+trait WithPath {
     fn path(&self) -> &Path;
+}
 
+macro_rules! with_path_impl {
+    ($($command:ty),*) => {
+        $(
+            impl WithPath for $command {
+                #[inline]
+                fn path(&self) -> &Path {
+                    Path::new(&self.path)
+                }
+            }
+        )*
+    }
+}
+
+with_path_impl!(Test, Get, TraceToGet, DumpBucket, List, Inspect);
+
+trait Executer {
     fn execute<B: U32orU64, R: Read + Seek>(&self, tchdb: TCHDB<B, R>);
 }
 
@@ -70,11 +87,6 @@ struct Test {
 }
 
 impl Executer for Test {
-    #[inline]
-    fn path(&self) -> &Path {
-        Path::new(&self.path)
-    }
-
     fn execute<U: U32orU64, R: Read + Seek>(&self, mut tchdb: TCHDB<U, R>) {
         println!("{:?}", &tchdb.header);
 
@@ -136,11 +148,6 @@ struct Get {
 }
 
 impl Executer for Get {
-    #[inline]
-    fn path(&self) -> &Path {
-        Path::new(&self.path)
-    }
-
     fn execute<U: U32orU64, R: Read + Seek>(&self, mut tchdb: TCHDB<U, R>) {
         let stdout = io::stdout().lock();
         let mut stdout = BufWriter::new(stdout);
@@ -160,11 +167,6 @@ struct TraceToGet {
 }
 
 impl Executer for TraceToGet {
-    #[inline]
-    fn path(&self) -> &Path {
-        Path::new(&self.path)
-    }
-
     fn execute<U: U32orU64, R: Read + Seek>(&self, mut tchdb: TCHDB<U, R>) {
         let stdout = io::stdout().lock();
         let mut stdout = BufWriter::new(stdout);
@@ -196,11 +198,6 @@ struct DumpBucket {
 }
 
 impl Executer for DumpBucket {
-    #[inline]
-    fn path(&self) -> &Path {
-        Path::new(&self.path)
-    }
-
     fn execute<U: U32orU64, R: Read + Seek>(&self, mut tchdb: TCHDB<U, R>) {
         let stdout = io::stdout().lock();
         let mut stdout = BufWriter::new(stdout);
@@ -224,11 +221,6 @@ struct List {
 }
 
 impl Executer for List {
-    #[inline]
-    fn path(&self) -> &Path {
-        Path::new(&self.path)
-    }
-
     fn execute<U: U32orU64, R: Read + Seek>(&self, mut tchdb: TCHDB<U, R>) {
         let stdout = io::stdout().lock();
         let mut stdout = BufWriter::new(stdout);
@@ -255,11 +247,6 @@ struct Inspect {
 }
 
 impl Executer for Inspect {
-    #[inline]
-    fn path(&self) -> &Path {
-        Path::new(&self.path)
-    }
-
     fn execute<U: U32orU64, R: Read + Seek>(&self, mut tchdb: TCHDB<U, R>) {
         let bucket_num;
         let empty_bucket_num;
