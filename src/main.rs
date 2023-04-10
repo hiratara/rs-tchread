@@ -33,7 +33,7 @@ enum SubCommand {
     Inspect(Inspect),
 }
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     let command = Command::from_args();
     let endian = if command.bigendian {
         Endian::Big
@@ -50,7 +50,7 @@ fn main() {
     }
 }
 
-fn run_with_endian<T: WithPath + Executer>(command: T, endian: Endian) {
+fn run_with_endian<T: WithPath + Executer>(command: T, endian: Endian) -> anyhow::Result<()> {
     let path = command.path();
     match load::open_with_endian(&path, endian) {
         TCHDBLoaded::Large(tchdb) => command.execute(tchdb),
@@ -78,7 +78,7 @@ macro_rules! with_path_impl {
 with_path_impl!(Test, Get, TraceToGet, DumpBucket, List, Inspect);
 
 trait Executer {
-    fn execute<B: U32orU64, R: Read + Seek>(&self, tchdb: TCHDB<B, R>);
+    fn execute<B: U32orU64, R: Read + Seek>(&self, tchdb: TCHDB<B, R>) -> anyhow::Result<()>;
 }
 
 #[derive(StructOpt)]
@@ -87,7 +87,7 @@ struct Test {
 }
 
 impl Executer for Test {
-    fn execute<U: U32orU64, R: Read + Seek>(&self, mut tchdb: TCHDB<U, R>) {
+    fn execute<U: U32orU64, R: Read + Seek>(&self, mut tchdb: TCHDB<U, R>) -> anyhow::Result<()> {
         println!("{:?}", &tchdb.header);
 
         let buckets: Buckets<U> = tchdb.read_buckets();
@@ -137,6 +137,7 @@ impl Executer for Test {
 
         let value = tchdb.get("NOT_EXIST");
         println!("NOT_EXIST => {:?}", value);
+        Ok(())
     }
 }
 
@@ -148,14 +149,16 @@ struct Get {
 }
 
 impl Executer for Get {
-    fn execute<U: U32orU64, R: Read + Seek>(&self, mut tchdb: TCHDB<U, R>) {
+    fn execute<U: U32orU64, R: Read + Seek>(&self, mut tchdb: TCHDB<U, R>) -> anyhow::Result<()> {
         let stdout = io::stdout().lock();
         let mut stdout = BufWriter::new(stdout);
 
         if let Some(value) = tchdb.get(&self.key) {
-            stdout.write_all(&value).unwrap();
-            writeln!(stdout, "").unwrap();
+            stdout.write_all(&value)?;
+            writeln!(stdout, "")?;
         }
+
+        Ok(())
     }
 }
 
@@ -167,26 +170,28 @@ struct TraceToGet {
 }
 
 impl Executer for TraceToGet {
-    fn execute<U: U32orU64, R: Read + Seek>(&self, mut tchdb: TCHDB<U, R>) {
+    fn execute<U: U32orU64, R: Read + Seek>(&self, mut tchdb: TCHDB<U, R>) -> anyhow::Result<()> {
         let stdout = io::stdout().lock();
         let mut stdout = BufWriter::new(stdout);
 
         let (key_with_hash, found, visited_records) = tchdb.get_detail(&self.key);
-        writeln!(stdout, "bucket: {}", key_with_hash.idx).unwrap();
-        writeln!(stdout, "hash: {}", key_with_hash.hash).unwrap();
+        writeln!(stdout, "bucket: {}", key_with_hash.idx)?;
+        writeln!(stdout, "hash: {}", key_with_hash.hash)?;
 
         let len = visited_records.len();
         for (i, mut r) in visited_records.into_iter().enumerate() {
-            write!(stdout, "record {}: hash={}, key=", i + 1, r.hash_value,).unwrap();
-            stdout.write_all(&r.key).unwrap();
-            writeln!(stdout, "").unwrap();
+            write!(stdout, "record {}: hash={}, key=", i + 1, r.hash_value,)?;
+            stdout.write_all(&r.key)?;
+            writeln!(stdout, "")?;
             if found && i == len - 1 {
                 r.value.read_value(&mut tchdb.reader);
                 let value = r.value.into_value().into_value();
-                stdout.write_all(&value).unwrap();
-                writeln!(stdout, "").unwrap();
+                stdout.write_all(&value)?;
+                writeln!(stdout, "")?;
             }
         }
+
+        Ok(())
     }
 }
 
@@ -198,16 +203,18 @@ struct DumpBucket {
 }
 
 impl Executer for DumpBucket {
-    fn execute<U: U32orU64, R: Read + Seek>(&self, mut tchdb: TCHDB<U, R>) {
+    fn execute<U: U32orU64, R: Read + Seek>(&self, mut tchdb: TCHDB<U, R>) -> anyhow::Result<()> {
         let stdout = io::stdout().lock();
         let mut stdout = BufWriter::new(stdout);
 
         let records = tchdb.dump_bucket(self.bucket_number);
         for (i, r) in records.into_iter().enumerate() {
-            write!(stdout, "record {}: hash={}, key=", i + 1, r.hash_value,).unwrap();
-            stdout.write_all(&r.key).unwrap();
-            writeln!(stdout, "").unwrap();
+            write!(stdout, "record {}: hash={}, key=", i + 1, r.hash_value,)?;
+            stdout.write_all(&r.key)?;
+            writeln!(stdout, "")?;
         }
+
+        Ok(())
     }
 }
 
@@ -221,22 +228,22 @@ struct List {
 }
 
 impl Executer for List {
-    fn execute<U: U32orU64, R: Read + Seek>(&self, mut tchdb: TCHDB<U, R>) {
+    fn execute<U: U32orU64, R: Read + Seek>(&self, mut tchdb: TCHDB<U, R>) -> anyhow::Result<()> {
         let stdout = io::stdout().lock();
         let mut stdout = BufWriter::new(stdout);
 
         for record in tchdb.read_record_spaces(self.pv) {
             if let RecordSpace::Record(record) = record {
-                stdout.write_all(&record.key).unwrap();
+                stdout.write_all(&record.key)?;
                 if self.pv {
-                    stdout.write_all(b"\t").unwrap();
-                    stdout
-                        .write_all(&record.value.into_value().into_value())
-                        .unwrap();
+                    stdout.write_all(b"\t")?;
+                    stdout.write_all(&record.value.into_value().into_value())?;
                 }
-                stdout.write_all(b"\n").unwrap();
+                stdout.write_all(b"\n")?;
             }
         }
+
+        Ok(())
     }
 }
 
@@ -247,7 +254,7 @@ struct Inspect {
 }
 
 impl Executer for Inspect {
-    fn execute<U: U32orU64, R: Read + Seek>(&self, mut tchdb: TCHDB<U, R>) {
+    fn execute<U: U32orU64, R: Read + Seek>(&self, mut tchdb: TCHDB<U, R>) -> anyhow::Result<()> {
         let bucket_num;
         let empty_bucket_num;
         {
@@ -294,40 +301,37 @@ impl Executer for Inspect {
         let stdout = io::stdout().lock();
         let mut stdout = BufWriter::new(stdout);
 
-        writeln!(stdout, "# of buckets: {}", bucket_num).unwrap();
-        writeln!(stdout, "# of empty buckets: {}", empty_bucket_num).unwrap();
-        writeln!(stdout, "# of records: {}", record_num).unwrap();
+        writeln!(stdout, "# of buckets: {}", bucket_num)?;
+        writeln!(stdout, "# of empty buckets: {}", empty_bucket_num)?;
+        writeln!(stdout, "# of records: {}", record_num)?;
         writeln!(
             stdout,
             "# of records without children: {}",
             record_no_children
-        )
-        .unwrap();
-        writeln!(stdout, "# of records with one child: {}", record_one_child).unwrap();
+        )?;
+        writeln!(stdout, "# of records with one child: {}", record_one_child)?;
         writeln!(
             stdout,
             "# of records with two children: {}",
             record_two_children
-        )
-        .unwrap();
+        )?;
         writeln!(
             stdout,
             "avg of key length: {}",
             key_length / record_num as f64
-        )
-        .unwrap();
+        )?;
         writeln!(
             stdout,
             "avg of value length: {}",
             value_length / record_num as f64
-        )
-        .unwrap();
+        )?;
         writeln!(
             stdout,
             "avg of padding length: {}",
             padding_length / record_num as f64
-        )
-        .unwrap();
-        writeln!(stdout, "# of free blocks: {}", freeblock_num).unwrap();
+        )?;
+        writeln!(stdout, "# of free blocks: {}", freeblock_num)?;
+
+        Ok(())
     }
 }
